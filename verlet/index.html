@@ -1,0 +1,206 @@
+<DOCTYPE html>
+<html lang="en" >
+<head>
+	<meta charset="utf-8">
+	<title>Verlet Physics</title>
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+	<style>
+	html {
+		overflow: hidden;
+		touch-action: none;
+		content-zooming: none;
+	}
+	body {
+		background: black;
+	}
+	#canvas{
+		position: absolute;
+		left:50%;
+		right:0;
+		top:50%;
+		bottom:0;
+		transform: translate(-50%,-50%);
+		display: block;
+		max-width: 100%;
+		max-height: 100%;
+	}
+	</style>
+</head>
+<body>
+	<canvas id="canvas"></canvas>
+
+</div>
+<script src="verlet.js" ></script>
+<script>
+	
+	'use strict'
+	
+	var width = 600;
+	var height = 800;
+	
+	
+	
+	var canvas = document.getElementById('canvas');
+	canvas.width = width;
+	canvas.height = height;
+	var ctx = canvas.getContext('2d');
+	
+	ctx.lineWidth = 2;
+	
+	
+	var dragVertex = null;
+	var mouse ={ x:0, y:0, dx: 0, dy: 0 };
+	
+	
+	
+	var world = new Verlet( width, height );
+	world.offset = 5;
+	world.gravity = 0.05;
+	
+	var poly1 = world.polygon( 200, 200, 6, 80,  0.1, 10,   'green');
+	var poly2 = world.polygon( 200, 400, 6, 60,  1.0, 20,  'yellow');
+	var poly3 = world.polygon( 100, 100, 3, 60,  0.1, 2,      'red');
+	var poly4 = world.polygon( 100, 500, 4,	50, 0.05, 2,     'blue');
+	var poly4 = world.polygon( 300, 500, 5, 80, 0.08, 8, 'deeppink');
+	
+	poly2.pin(5);
+	
+	
+	
+	VerletBody.prototype.draw = function(ctx) {
+		
+		//constraints
+		
+		var c = this.constraints;
+		
+		ctx.beginPath();
+		
+		for (var i = 0; i < c.length; i++) {
+			
+			var pos0 = c[i].p0;
+			var pos1 = c[i].p1;
+			
+			ctx.moveTo(pos0.x, pos0.y);
+			ctx.lineTo(pos1.x,pos1.y );
+		}
+		ctx.strokeStyle = 'darkcyan';
+		ctx.stroke();
+		
+		
+		//edges
+		
+		if(this.edges.length){
+			
+			ctx.beginPath();
+			var p = this.edges[0].p0;
+			ctx.moveTo(p.x, p.y);
+
+			for (var i = 1; i < this.eCount; i++) {
+				p = this.edges[i].p0;
+				ctx.lineTo(p.x, p.y);
+			}
+
+			ctx.closePath();
+			ctx.fillStyle = ctx.strokeStyle = this.color;
+			ctx.stroke();
+		}
+		
+		
+
+	}
+	
+	function updateMouse(e){
+		
+		var rect = canvas.getBoundingClientRect();
+		
+		var scale =  width / rect.width;
+		var touch = e.touches && e.touches.length === 1 ? e.touches[0] : e;
+		
+		
+		mouse.x = (touch.clientX - rect.left)*scale; 
+		mouse.y = (touch.clientY - rect.top)*scale;
+		
+	}
+	function dragStart(e){
+		
+		
+		updateMouse(e);
+		
+		dragVertex = world.nearestVertex( mouse.x, mouse.y, 60);
+		
+		if(dragVertex){
+			
+			mouse.dx = mouse.x - dragVertex.position.x;
+			mouse.dy = mouse.y - dragVertex.position.y;  
+		}
+		
+	}
+	function dragEnd(e){
+		
+		dragVertex=null;
+		mouse.dx = 0;
+		mouse.dy = 0; 
+	}
+	
+	canvas.addEventListener('mousedown',dragStart,false);
+	canvas.addEventListener('mouseup',dragEnd,false);
+	canvas.addEventListener('mousemove',updateMouse,false);
+	canvas.addEventListener('mouseleave',dragEnd,false);
+	canvas.addEventListener('touchstart',dragStart,false);
+	canvas.addEventListener('touchend',dragEnd,false);
+	canvas.addEventListener('touchmove',updateMouse,false);
+	canvas.addEventListener('touchcancel',dragEnd,false);
+	
+	(function draw(){
+		
+		ctx.clearRect(0,0,width,height);
+		
+		//mark dragged
+		if(dragVertex){
+			
+			var pos = dragVertex.position;
+			
+			pos.x = mouse.x - mouse.dx;
+			pos.y = mouse.y - mouse.dy;
+			
+			ctx.beginPath();
+			ctx.arc(pos.x,pos.y,6,0,Math.PI*2 );
+			ctx.strokeStyle = 'red';
+			ctx.stroke();
+		}
+		
+		for(var i=0; i< world.bodies.length;i++){
+			
+			world.bodies[i].draw(ctx);
+		}
+		
+		
+		
+		ctx.beginPath();
+		
+		var v = world.vertices;
+		
+		for (var i = 0; i < v.length; i++) {
+			
+			var pos = v[i].position;
+			ctx.moveTo(pos.x, pos.y);
+			ctx.arc(pos.x,pos.y,5,0,Math.PI*2);
+		}
+		ctx.fillStyle ='springgreen';
+		ctx.fill();
+		
+		world.update();
+		
+		requestAnimationFrame(draw);
+		
+	})();
+	
+	//utils
+	
+	function clamp(num, min, max) {
+		
+			return num < min ? min : (num > max ? max : num);
+		}
+</script>
+</body>
+</html>
