@@ -1,0 +1,111 @@
+<DOCTYPE html>
+<html lang="en" >
+<head>
+	<meta charset="utf-8">
+	<title>Ripples</title>
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+	<style>
+	html{
+		touch-action: none;
+	}
+	html,body{
+		height: 100%;
+		overflow: hidden;
+	}
+	body{
+		background: black;
+		
+	}
+	#canvas{
+		position: absolute;
+		left:50%;
+		top:50%;
+		display: block;
+		transform: translate(-50%,-50%);
+		max-width: 100%;
+		max-height: 100%;
+	}
+	</style>
+</head>
+<body>
+	<canvas id="canvas"></canvas>
+	<script src="ripples.js" ></script>
+	<script>
+		'use strict'
+		
+		var width = 400
+		var height = 400
+		var cx = width / 2
+		var cy = height / 2
+		var canvas = document.getElementById('canvas')
+		var ctx = canvas.getContext('2d')
+		
+		canvas.width = width
+		canvas.height = height
+		
+		ctx.font='bold 80px Arial';
+		ctx.textAlign='center'
+		ctx.textBaseline ='middle'
+		ctx.fillStyle='lightslategray'
+		ctx.fillRect(0,0,width,height)
+		ctx.fillStyle='black'
+		
+		
+		var odd = 0
+		var size = 40
+		
+		for( var y = 0; y < height; y += size ){
+			for( var x = 0; x < width; x += size ){
+				
+				if(odd)
+					ctx.fillRect(x,y,size,size)
+				odd = 1 - odd
+			}
+			
+			odd = 1-odd
+		}
+		ctx.fillStyle = 'white'
+		ctx.fillText('RIPPLE',cx,cy)
+		
+		
+		var effect = Ripples( canvas, 8)
+	
+		
+		canvas.addEventListener('mousemove',move,false)
+		canvas.addEventListener('touchmove',move,false)
+		
+		loop()
+		
+		setInterval( effect.drop, 1000 )
+		
+		
+		function loop(){
+		
+			effect.draw()
+			setTimeout(loop,30)
+		}
+		function move(e){
+			
+			var m=mouse(e,width)
+			
+			if (m ) effect.drop( m[0] ,m[1] )
+			
+		}
+		function mouse(e, w){
+			
+			if(e.touches && e.touches.length != 1) return false
+			var rect = e.target.getBoundingClientRect();
+			
+			var scale =  w / rect.width;
+			var touch = e.touches && e.touches.length === 1 ? e.touches[0] : e;
+			
+			
+			var x = (touch.clientX - rect.left)*scale; 
+			var y = (touch.clientY - rect.top)*scale;
+			return [x,y]
+		}
+	
+		
+	</script>
+</body>
+</html>
