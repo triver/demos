@@ -178,9 +178,9 @@ function loop(){
 	ctx.lineWidth = 1
 	
 	
-	draw(dataA,8,ctx)
-	draw(dataB,8,ctx)
-	draw(dataC,8,ctx)
+	drawPath(dataA,8,ctx)
+	drawPath(dataB,8,ctx)
+	drawPath(dataC,8,ctx)
 	
 
 	
@@ -263,7 +263,7 @@ function loop(){
 }
 
 
-function draw(  data, scale, ctx){
+function drawPath(  data, scale, ctx){
 	var i,p,n
 	
 	ctx.lineWidth=0.5
