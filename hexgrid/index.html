@@ -1,0 +1,278 @@
+<DOCTYPE html>
+<html lang="en" >
+<head>
+	<meta charset="utf-8">
+	
+	<title>Hex Grid Cubic Coords</title>
+	
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+	
+	<style>
+	html {
+		touch-action: none;
+		content-zooming: none;
+		height: 100%;
+	}
+	body{ 
+		
+		background: steelblue; 
+		overflow: hidden; 
+		height: 100%; 
+		margin:0; 
+		padding:0;
+		zoom:1;
+	}
+	#container{
+		width: 100%;
+		height: 100%;
+		
+	}
+	svg{
+		width: 100%;
+		height: 100%;
+		max-width: 100%;
+		max-height: 100%;
+		
+	}
+	</style>
+</head>
+<body>
+	<div id="container"></div>
+	
+	<script src="svgcanvas.js" ></script>
+	<script src="binaryheap.js" ></script>
+	<script src="hexgrid.js" ></script>
+	<script src="dragzoom.js" ></script>
+	<script>
+	
+		var width = 300 //viewbox width
+		var height = 300 //viewbox height
+		var size =12 //hexagon size
+		var radius=8 //grid radius
+		var interval = 300 // tick interval
+		var colors =['black','darkorange','blue','darkred','lime','olive','orange','springgreen','darkolivegreen','blue']
+		
+		//svg
+		var container = document.getElementById('container')
+		var svg = SvgCanvas( container, width, height)
+		var gridLayer = svg.layer()
+		
+		//grid
+		
+		var grid = new Grid( radius ).layout( size )
+		
+		grid.hexes.forEach(function(a){
+			
+			var poly = svg.regularPolygon(a.center.x, a.center.y,  6, size-0.5, 0, null, gridLayer)
+			poly.setAttr('index', a.index )
+			poly.setAttr('fill', colors[0] )
+			
+			poly.element.addEventListener('click',clickHandler,false);
+			a.element = poly
+			
+		});
+		
+		function clickHandler(e){
+			
+			var index = +(e.target.getAttribute('index'))
+			grid.hexes[index].blocked = !grid.hexes[index].blocked
+			draw()
+		}
+		
+		
+		//animation
+		
+		var colorMap = new Array( grid.hexes.length ).fill(0)
+		
+		var player = {
+			pos: new Hex(0,0,0),
+			color:6,
+			path:[],
+			stepRandom:function(){
+				
+				var n = grid.getNeighbors( this.pos)
+				var i,l = n.length
+				
+				do{
+					i = Math.floor( Math.random() * l )
+				}
+				while( n[i].blocked ){}
+				
+				colorMap[ n[i].index] = this.color
+				this.pos.copy( n[i] )
+			},
+			walkPath:function(){
+				
+				if( this.path.length ){
+					
+					var tail = this.path.pop()
+					
+					this.pos.copy( tail )
+					
+					for(var i=0; i<this.path.length;i++){
+						
+						if(this.path[i].blocked){
+							
+							this.path=[]
+							return
+							
+						}
+						colorMap[ this.path[i].index ] = 8
+					}
+					
+					colorMap[ tail.index ] = this.color
+					if(this.path.length)
+						colorMap[ this.path[0].index ] = 9
+				}
+				else
+				{
+					var goal = grid.getRandomHex( this.pos ,3 )
+					
+					this.path = grid.findPath(  goal, grid.getHexAt( this.pos ) )
+					
+					colorMap[ grid.getHexAt(this.pos).index ] = this.color
+					
+				}
+			}
+			
+		}
+	
+		function update(){
+			
+			colorMap.fill(0)
+			
+			player.walkPath()
+			//player.stepRandom()
+			
+		}
+		
+		function draw(){
+			
+			var i = grid.hexes.length, index, hex, color
+			
+			while(i--){
+				
+				index= +colorMap[i]
+				hex = grid.hexes[i]
+				color = hex.blocked ? 'springgreen' : colors[ index ]
+				
+				hex.element.setAttr('fill', color )
+			}
+		}
+		
+		function tickAnimation(){
+			
+			update()
+			draw()
+			
+		}
+		
+		//utils
+		function isometric( cx, cy,scale, rotation, tilt){
+
+			var sin = Math.sin(rotation)
+			var cos = Math.cos(rotation)
+			var h = Math.cos( tilt);
+			
+			var a = scale*cos
+			var b = -scale*sin
+			var c = cx;
+			var d = h*scale*sin
+			var e = h*scale*cos
+			var f = cy;
+			
+			return 'matrix('+a+','+d+','+b+','+e+','+c+','+f+')'
+			
+		}
+		function clamp(num, min, max) {
+			
+			return num < min ? min : (num > max ? max : num)
+		}
+		
+		/*====================LOOP=======================*/
+		
+		
+		var last
+		var tilt=0
+		var rotation=0
+		var zoom=1
+		var maxTilt = -Math.PI / 2 + 0.2
+		var svgCount=0
+		var animCount=0
+		
+		//loop
+		function loop( time ){
+		
+			requestAnimationFrame( loop)
+			
+			if( !last ) last = time
+			
+			var delta = time - last
+			
+			
+			
+			if( DragZoom.isDragging && (svgCount += delta) > 33 ){
+				
+				gridLayer.element.setAttribute('transform',isometric( 0,0, zoom, rotation, tilt ) )
+				
+				svgCount=0
+				animCount=0
+			}
+			else if( (animCount += delta) > interval ){
+				
+				tickAnimation()
+				animCount=0;
+			}
+			
+			last = time
+			
+		}
+
+		requestAnimationFrame(loop)
+		
+		
+		//add dragzoom
+		DragZoom({
+			
+			zoom:function( e, delta, wheel){
+				
+				zoom += wheel ? delta*0.15 : delta*0.008
+				zoom = clamp( zoom, 0.5, 3)
+			},
+			dragX:function( e, diff){
+				
+				rotation -=  diff*0.006
+			},
+			dragY:function( e, diff){
+				
+				tilt +=  diff*0.005
+				tilt = clamp( tilt, maxTilt, 0)
+			}
+			/*
+			drag:function(e,dx,dy){
+				
+				rotation -=  dx*0.006
+				
+				tilt +=  dy*0.006
+				tilt = clamp( tilt, maxTilt, 0)
+			}
+			*/
+		})
+	
+	</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
