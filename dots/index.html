@@ -1,0 +1,61 @@
+<DOCTYPE html>
+<html lang="en" >
+<head>
+	<meta charset="utf-8">
+	<title>Dotted Lines</title>
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+	<style>
+	html,body{
+		height: 100%;
+		overflow: hidden;
+		font-family: "Helvetica Neue",Helvetica,Arial;
+	}
+
+	#canvas{
+		position: absolute;
+		left:50%;
+		top:50%;
+		display: block;
+		transform: translate(-50%,-50%);
+		max-width: 100%;
+		max-height: 100%;
+	}
+	#controls{
+		position: absolute;
+		left:0;
+		top:0;
+		background: rgba(255,255,255,0.5);
+		z-index:1;
+		padding: 5px;
+		border: 1px solid #ccc;
+		border-bottom-right-radius: 5px;
+	}
+	input{
+		outline: none;
+		display: inline-block;
+		width: 150px;
+	}
+	label {
+		display: inline-block;
+		margin: 5px;
+	}
+	label span{
+		display: inline-block;
+		width: 50px;
+	}
+	</style>
+</head>
+<body>
+	
+	<div id="controls">
+		
+		<label><span>dist</span><input id="speedControl" type="range" value="4" min="2" max="16" step="1"></label><br>
+		<label><span>delay</span><input id="delayControl" type="range" value="33" min="16" max="100" step="1"></label>
+		
+	</div>
+	
+	<canvas id="canvas"></canvas>
+	
+	<script src="script.js"></script>
+</body>
+</html>
