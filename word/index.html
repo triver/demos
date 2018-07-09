@@ -1,0 +1,289 @@
+<DOCTYPE html>
+<html lang="en" >
+<head>
+	<meta charset="utf-8">
+	<title>Svg Transforms</title>
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1" >
+	<style>
+		html {
+			touch-action: none;
+		}
+		html,body{
+			 
+			width: 100%; 
+			height: 100%;
+			margin:0;
+			padding:0;
+			
+		}
+		body{ 
+			background: slategray; 
+			overflow: hidden;
+		}
+		
+		#svg{
+			margin: auto;
+			display: block;
+			position: absolute;
+			left:0;
+			top:0;
+			bottom:0;
+			right:0;
+			max-width: 600px;
+			max-height: 100%;
+			border: 1px solid black;
+			box-sizing: border-box;
+		}
+		path{
+			stroke: #000000;
+		}
+	
+	</style>
+	
+</head>
+<body>
+
+<svg version="1.1" id="svg"  
+	 viewBox="0 0 300 300"  preserveAspectRatio="xMidYMid meet">
+<g id="background"></g>
+<g id="layer_word"> 
+<g id="layer_w" class="layer">
+	<path id="word_w" class="letter" d="M16.5,102.5h16.8l6.1,32.1l8.9-32.1h16.7l8.9,32l6.1-32h16.7L84,159.8H66.6l-10-36.1l-10,36.1H29.2
+		L16.5,102.5z"/>
+</g>
+<g id="layer_o" class="layer">
+	<path id="word_o" class="letter" d="M98.8,131.2c0-9.3,2.6-16.6,7.8-21.8c5.2-5.2,12.5-7.8,21.8-7.8c9.5,0,16.9,2.6,22,7.7s7.7,12.3,7.7,21.5
+		c0,6.7-1.1,12.2-3.4,16.5c-2.3,4.3-5.5,7.6-9.8,10s-9.6,3.6-15.9,3.6c-6.5,0-11.8-1-16-3.1c-4.2-2.1-7.7-5.3-10.3-9.8
+		C100.1,143.5,98.8,137.9,98.8,131.2z M116.5,131.3c0,5.8,1.1,9.9,3.2,12.5c2.1,2.5,5.1,3.8,8.8,3.8c3.8,0,6.7-1.2,8.8-3.7
+		c2.1-2.5,3.1-6.9,3.1-13.3c0-5.4-1.1-9.3-3.3-11.8c-2.2-2.5-5.1-3.7-8.8-3.7c-3.6,0-6.4,1.3-8.6,3.8
+		C117.5,121.3,116.5,125.4,116.5,131.3z"/>
+</g>
+<g id="layer_r" class="layer">
+	<path id="word_r" class="letter" d="M167.9,159.8v-57.3h29.5c5.5,0,9.6,0.5,12.5,1.4s5.2,2.7,7,5.2c1.8,2.5,2.7,5.6,2.7,9.3c0,3.2-0.7,5.9-2,8.2
+		c-1.4,2.3-3.2,4.2-5.6,5.6c-1.5,0.9-3.6,1.7-6.2,2.3c2.1,0.7,3.6,1.4,4.6,2.1c0.7,0.5,1.6,1.5,2.8,3c1.2,1.5,2.1,2.7,2.5,3.6
+		l8.6,16.6h-20l-9.5-17.5c-1.2-2.3-2.3-3.7-3.2-4.4c-1.3-0.9-2.7-1.3-4.3-1.3h-1.6v23.2H167.9z M185.6,125.7h7.5
+		c0.8,0,2.4-0.3,4.7-0.8c1.2-0.2,2.1-0.8,2.9-1.8c0.7-1,1.1-2.1,1.1-3.3c0-1.8-0.6-3.3-1.8-4.3c-1.2-1-3.4-1.5-6.6-1.5h-7.8V125.7z"
+		/>
+</g>
+<g id="layer_d" class="layer">
+	<path id="word_d" class="letter" d="M230.1,102.5h26.3c5.2,0,9.4,0.7,12.6,2.1c3.2,1.4,5.8,3.4,7.9,6.1c2.1,2.6,3.6,5.7,4.5,9.2
+		c0.9,3.5,1.4,7.2,1.4,11.1c0,6.1-0.7,10.9-2.1,14.2c-1.4,3.4-3.3,6.2-5.8,8.5c-2.5,2.3-5.1,3.8-8,4.6c-3.9,1-7.4,1.6-10.5,1.6
+		h-26.3V102.5z M247.8,115.5v31.3h4.3c3.7,0,6.3-0.4,7.9-1.2s2.8-2.3,3.7-4.3c0.9-2,1.3-5.4,1.3-9.9c0-6.1-1-10.2-3-12.5
+		c-2-2.2-5.3-3.4-9.8-3.4H247.8z"/>
+</g>
+</g>	
+</svg>
+
+
+<script src="util.js" ></script>
+<script src="dragzoom.js" ></script>
+<script>
+	var svg = document.getElementById('svg');
+	var text = svg.getElementById('layer_word');
+	var bg = svg.getElementById('background');
+	var letters = text.getElementsByTagName('path');
+	var data = [];
+	var cx = 150;
+	var cy = 150;
+	
+	var color = interpolateColor('orange','red');
+	var color2 = interpolateColor('black','slategray');
+	var angle = 0;
+	var last=0;
+	var dur=2;
+	var step = Math.PI / ( 1000 * dur );
+	var fase =0;
+	var rotation=0;
+	var textRotation=0;
+	var textVelocity=0;
+	var tilt=0;
+	var scale =1;
+	var state=0;
+	
+	init();
+	
+	
+	function init(){
+		
+		
+		var grid = [new Vec2(-1,-1),new Vec2(1,-1),new Vec2(-1,1),new Vec2(1,1)]
+		var grid2 = [new Vec2(-4,10),new Vec2(-1,0),new Vec2(0,0),new Vec2(1,0)]
+		
+		for(var i=0; i< letters.length; i++){
+		
+			var bb = letters[i].getBBox();
+			var x = bb.x + bb.width / 2;
+			var y = bb.y + bb.height/2;
+			var dx = x - cx;
+			var dy = y - cy;
+			var angle = Math.atan2( dy, dx );
+			var origin = new Vec2( x,y);
+			var pos = new Vec2( dx, dy);
+			
+			
+			
+			var pos1 = pos.clone().project( new Vec2(-1,-1) ).multiplyScalar(2)
+			var pos2 = new Vec2( 100, 0).rotate(Math.PI/2*i)
+			var pos3 = new Vec2( 0, pos.x)
+			var pos4 = grid[i].multiplyScalar(35)
+			var pos5 = pos.clone().reflect( new Vec2(-1,0) );
+			
+			
+			data.push({
+				box: bb,
+				origin: origin, 
+				pos: pos,
+				states: [pos2,pos4,pos5],
+				a: angle,
+				current: pos.clone() 
+			});
+		}
+		
+	
+		var odd = 1
+		var size = 50
+		
+		for(var y = -size; y<= 300; y += size){
+			for(var x = -size; x <= 300;x +=size){
+				
+				if(odd){
+					
+					createElement('rect',{
+					x:x-cx,
+					y:y-cy,
+					width:size,
+					height:size	
+					},bg)
+					
+					
+				}
+				
+				odd = 1 - odd
+			}
+			odd = 1 - odd
+		}
+		
+		
+		bg.setAttribute('transform', 'translate('+cx+','+cy+') scale(2.5)')
+		bg.setAttribute('fill', 'black')
+		
+		text.setAttribute('transform', 'translate('+cx+','+cy+')')
+	
+		DragZoom({
+			drag:function(e,dx,dy){
+				
+				tilt = clamp( tilt + dy * 0.005, -1.3,0)
+				rotation -= dx*0.0025
+				
+				textVelocity -=  dx*0.0005
+			},
+			zoom:function(e,d, isWheel){
+				
+				if( isWheel )
+					scale = clamp( scale + d*0.1,0.5,2)
+				else
+					scale = clamp( scale + d*0.0035,0.5,2)
+			}
+		})
+	
+		requestAnimationFrame( draw )
+		
+	}
+	
+	function draw( time ){
+		
+		requestAnimationFrame( draw);
+	
+		var delta = time - last;
+		var odd = ( state & 1)
+		var t = 1 - Easing.easeInOutBack( normalize( Math.cos(angle), -1, 1 ) , 1 );
+		
+		for(var i=0, l=letters.length; i< l; i++){
+		
+			var c = data[i];
+			
+			var pos = c.pos.clone().lerp( c.states[ state % c.states.length ], t ).subtract( c.pos );
+			
+			letters[i].setAttribute( 'transform' ,  matrix( 
+				 c.origin.x,
+				 c.origin.y,
+				 pos.x-cx ,
+				 pos.y-cy, 
+				 odd  || i===2 ? 1 : 1-t*2, 
+				  i===1 && !odd ?  1-t*2: 1,
+				 !odd ? 0 :  t*Math.PI
+			));
+			
+			
+			//cycle color
+			var ct = normalize( oscillate( i/l, 5, fase ), -1,1);
+			
+			letters[i].setAttribute( 'fill',color( ct ) );
+			
+		}
+		
+		//transform all
+	
+		text.setAttribute('transform', isometric( cx, cy, scale ,rotation + textRotation, tilt*0.75))
+			
+		
+		bg.setAttribute('transform', isometric( cx, cy, scale, rotation, tilt) )
+		
+		
+		//update
+		angle += step * delta;
+		fase += 0.03;
+		textRotation += textVelocity;
+		textVelocity *= 0.96
+		
+		if(angle >= Math.PI*2){
+			
+			angle=0;
+			state++;
+		}
+		
+		last = time;
+		
+	}
+	function createElement(type,attr,parent){
+			
+		attr = attr || {};
+		
+		var elm = document.createElementNS("http://www.w3.org/2000/svg", type);
+	
+		for( var p in attr){
+			
+			elm.setAttribute(p,attr[p]);
+		}
+		parent.appendChild(elm);
+		
+		return elm;
+	}
+	
+
+</script>	
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
