@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>	Scanline</title>
+	<style>
+		html{
+			width: 100%;
+			height: 100%;
+		}
+		body{
+			background: lime;
+			width: 100%;
+			height: 100%;
+			overflow: hidden;
+			margin:0;
+			padding:0;
+		}
+		#canvas{
+			display: block;
+			margin: 0;
+			position: absolute;
+			left: 50%;
+			top: 50%;
+			transform: translate(-50%,-50%);
+		}
+	</style>
+</head>
+<body>
+	<canvas id="canvas"></canvas>
+	
+	<script>
+		
+	'use strict'
+	
+	var width = 300
+	var height = 300
+	var cx = width >> 1
+	var cy = height >> 1
+	var canvas = document.getElementById('canvas');
+	
+	canvas.width = width
+	canvas.height = height
+	
+	var ctx = canvas.getContext('2d');
+
+	var iData = ctx.getImageData(0,0,width,height)
+	var data = iData.data
+	
+	var pts = generatePoints( cx, cy, Math.min( cx,cy) - 6 )
+
+	var scan = scanline( pts )
+
+
+	function putLine( x0, x1, y, d, w, c ){
+		
+		for(var x = x0; x <= x1; x++){
+			
+			var i = ( x + y * w ) * 4
+			
+			d[i] = c[0]
+			d[i+1] = c[1]
+			d[i+2] = c[2]
+			d[i+3] = 255
+		}
+		
+	}
+	function putPixel(x,y,d,w,c){
+		
+		var i = ( x + y * w ) * 4
+		d[i] = c[0]
+		d[i+1] = c[1]
+		d[i+2] = c[2]
+		d[i+3] = 255
+	}
+	function drawCircle(x0, y0, radius, d, w, c)
+	{
+		var x = radius-1
+		var y = 0
+		var dx = 1
+		var dy = 1
+		var err = dx - (radius << 1)
+		
+		
+		while (x >= y)
+		{
+			
+			
+			putLine(x0 - x,x0 + x, y0 + y, d, w, c )
+			putLine(x0 - x,x0 + x, y0 - y, d, w, c )
+			putLine(x0 - y,x0 + y, y0 - x, d, w, c )
+			putLine(x0 - y,x0 + y, y0 + x, d, w, c )
+		
+			
+			if (err < 0)
+			{
+				y += 1
+				err += dy
+				dy += 2
+			}
+			if (err >= 0)
+			{
+				x -= 1
+				dx += 2
+				err += dx - (radius << 1)
+			}
+		}
+	}
+	function bline(x0, y0, x1, y1,d,w,c) {
+ 
+	  var dx = Math.abs(x1 - x0), 
+		  sx = x0 < x1 ? 1 : -1
+		  
+	  var dy = Math.abs(y1 - y0), 
+	      sy = y0 < y1 ? 1 : -1
+		  
+	  var err = (dx>dy ? dx : -dy)/2
+	 
+	  while (true) {
+	  
+		putPixel( x0, y0, d, w, c)
+		
+		if (x0 === x1 && y0 === y1) break
+		
+		var e2 = err;
+		
+		if (e2 > -dx) { err -= dy; x0 += sx; }
+		
+		if (e2 < dy) { err += dx; y0 += sy; }
+	  }
+	}
+	
+	
+	function generatePoints(cx,cy,r){
+		
+		var pts = []
+		
+		for(var i=0; i<Math.PI*2-0.2; i += Math.random()*2+0.2){
+			
+			var x = cx + Math.cos(i)*r | 0
+			var y = cy + Math.sin(i)*r | 0
+			
+			pts.push([x,y])
+		}
+		
+		return pts
+	}
+	function clearData(data){
+	
+		for(var i=0; i<data.length;i++) data[i] = 0
+	}
+	function loop(i){
+		
+	
+		for(var j = 0, l = pts.length; j< l; j++){
+			
+			var p0 = pts[j]
+			var p1 = pts[ (j+1) % l ]
+			
+			drawCircle(p0[0], p0[1], 5, data, width, [0,0,0])
+			
+			bline(p0[0], p0[1],p1[0], p1[1], data, width, [0,0,0])
+			
+			
+		}
+		ctx.putImageData( iData, 0, 0 )
+		
+		var s = scan[i]
+		
+		if(s){
+			
+			putLine( s[0],s[1],s[2],data,width,[255,0,0])
+			setTimeout(loop,16, i + 1)
+		}
+		else{
+			
+			clearData(data)
+			
+			setTimeout(function(){
+				
+				pts = generatePoints(cx,cy,Math.min( cx,cy)-6 )
+				scan = scanline( pts )
+				loop(0)
+				
+			},1000)
+		}
+			
+		
+		
+		
+	}
+	
+	loop(0)
+	
+	//scanline
+	function scanline(points){
+	
+		
+		var lines = [];
+		
+		for (var i = 0; i < points.length; i++) {
+			
+			lines.push(new Line(points[i], points[(i+1)%points.length]))
+		}
+		
+		
+		var minY = points[0][1]
+		var maxY = points[0][1]
+		
+		for (var i = 0; i < points.length; i++) {
+			var temp = points[i][1]
+			if (temp < minY)
+				minY = temp
+			else if (temp > maxY)
+				maxY = temp
+		}
+		
+		var ret =[]
+		
+		for (var y = minY; y < maxY; y++) {
+			
+			var meetPoint = getMeetPoint( y, lines)
+			
+			for (var i = 1; i < meetPoint.length; i += 2) {
+				
+					ret.push([ meetPoint[i - 1], meetPoint[i], y])
+					
+				}
+		}
+		
+		return ret
+	}
+	function getMeetPoint(y, lines) {
+		
+		var meet = []
+		
+		for (var i = 0; i < lines.length; i++) {
+			var l = lines[i];
+			if (l.isValidY(y)) {
+				meet.push(l.getX(y))
+			}
+		}
+
+		
+		for (var i = 0; i < meet.length; i++){
+			for (var j = i; j < meet.length; j++) {
+				if (meet[i]>meet[j]) {
+					var temp =meet[i]
+					meet[i]=meet[j]
+					meet[j]=temp;
+				}
+			}
+		}
+		
+		return  meet
+
+	}
+
+	function Line(start, end) {
+		
+		this.x0 = start[0]
+		this.x1 = end[0]
+		this.y0 = start[1]
+		this.y1 = end[1]
+		
+		this.m = (this.y1 - this.y0) / (this.x1 - this.x0)
+
+		this.getX = function (y) {
+			
+			if (!this.isValidY(y))
+				throw new RangeError()
+
+			return Math.round( 1 / this.m * (y - this.y0) + this.x0 )
+		}
+
+		this.isValidY = function (y) {
+			
+			if (y >= this.y0 && y < this.y1) {
+				return true
+			}
+			if (y >= this.y1 && y < this.y0) {
+				return true
+			}
+
+			return false
+		}
+	}
+	
+	</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
