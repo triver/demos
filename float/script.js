@@ -4,19 +4,20 @@ var width = 600
 var height = 600
 var PI2 = Math.PI*2
 var radius = 100
-var elasticity = 0.4
+
 var canvas = document.getElementById('canvas')
 var ctx = canvas.getContext('2d')
 
 canvas.width = width
 canvas.height = height
+
 ctx.strokeStyle ='red'
 ctx.fillStyle ='lightslategray'
 ctx.lineWidth = 3
 
 
-var dist = Distribute()
-var pos = dist.uniformDisc( 0, 0, radius,8)
+
+var pos = uniformDisc( 0, 0, radius, 8)
 var hull = convexHull(pos )
 var simplex = new SimplexNoise()
 var res = 150
@@ -63,25 +64,7 @@ function loop(){
 	
 	
 	var i
-	/*
-	ctx.beginPath()
-	for(i=0; i<pos.length; i++){
-		
-		var n = simplex.noise3d(( cx + pos[i][0]) / res, (cy + pos[i][1]) / res, z )*factor
-		var x = cx + pos[i][0] * ( 1 + n )
-		var y = cy + pos[i][1] * ( 1 + n )
-		
-		if( x > width-2) x=width-2
-		else if( x < 2) x =2
-		
-		if( y > height-2) y=height-2
-		else if( y < 2) y =2
-		
-		ctx.moveTo(x,y)
-		ctx.arc(x,y,2,0,PI2)
-	}
-	ctx.fill()
-	*/
+	
 	ctx.beginPath()
 	for(i=0; i<hull.length; i++){
 		
@@ -99,7 +82,6 @@ function loop(){
 		else ctx.lineTo( x, y )
 	}
 	ctx.closePath()
-	//ctx.fill()
 	ctx.stroke()
 	
 	var dx = targetX - cx
@@ -187,5 +169,131 @@ function convexHull(points) {
 	
 	return hull
 	
+	
+}
+
+function poissonDiscSampler(width, height, radius) {
+		
+		
+  var k = 30,
+	  radius2 = radius * radius,
+	  R = 3 * radius2,
+	  cellSize = radius * Math.SQRT1_2,
+	  gridWidth = Math.ceil(width / cellSize),
+	  gridHeight = Math.ceil(height / cellSize),
+	  grid = new Array(gridWidth * gridHeight),
+	  queue = [],
+	  queueSize = 0,
+	  sampleSize = 0
+	
+	var far = function(x, y) {
+	
+		var i = x / cellSize | 0,
+			j = y / cellSize | 0,
+			i0 = Math.max(i - 2, 0),
+			j0 = Math.max(j - 2, 0),
+			i1 = Math.min(i + 3, gridWidth),
+			j1 = Math.min(j + 3, gridHeight)
+
+		for (j = j0; j < j1; ++j) {
+			
+			var o = j * gridWidth
+			
+			for (i = i0; i < i1; ++i) {
+				
+				if (s = grid[o + i]) {
+					
+				  var s,
+				  dx = s[0] - x,
+				  dy = s[1] - y
+					  
+				  if (dx * dx + dy * dy < radius2) return false
+				  
+				}
+			}
+		}
+
+		return true
+	}
+
+	var sample = function(x, y) {
+		
+		var s = [x, y]
+		queue.push(s)
+		grid[gridWidth * (y / cellSize | 0) + (x / cellSize | 0)] = s
+		++sampleSize
+		++queueSize
+		
+		return s
+	}
+	
+	
+	return function() {
+	  
+		if (!sampleSize) return sample(Math.random() * width, Math.random() * height)
+
+
+		while (queueSize) {
+		  var i = Math.random() * queueSize | 0,
+			  s = queue[i]
+
+
+		  for (var j = 0; j < k; ++j) {
+			  
+			var a = 2 * Math.PI * Math.random(),
+				r = Math.sqrt(Math.random() * R + radius2),
+				x = s[0] + r * Math.cos(a),
+				y = s[1] + r * Math.sin(a)
+
+
+			if (0 <= x && x < width && 0 <= y && y < height && far(x, y)) return sample(x, y)
+		  }
+
+		  queue[i] = queue[--queueSize]
+		  queue.length = queueSize
+		}
+	};
+	
+ 
+}
+function uniformRect(x,y,w,h,r){
+			
+	var sample = poissonDiscSampler(w, h, r),
+		samples = [],
+		done = false
+		
+		
+	while(!done) {
+		for (var i = 0; i < 10; ++i) {
+			
+			var s = sample()
+			
+			if (!s){ 
+				done = true
+				break
+			}
+			
+			var p = [x + s[0], y + s[1]]
+			samples.push(p)
+			
+			
+		}
+	}
+	
+	return samples
+}
+function uniformDisc( cx, cy, r1, r2){
+			
+	var r = r1+r1,
+		dx,dy,d
+		
+	return uniformRect(cx - r1, cy - r1 , r, r, r2).filter(function(a){
+		
+		dx = a[0] - cx
+		dy = a[1] - cy
+		d = Math.sqrt(dx*dx + dy*dy)
+		
+		return d < r1
+	})
 	
 }
