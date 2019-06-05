@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+	<meta charset="utf-8">
+	<title>Flood Fill</title>
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+	<style>
+	html,body{
+			margin:0;
+			padding:0;
+			width: 100%;
+			height: 100%;
+			overflow: hidden;
+		}
+		body{ 
+			background:slategray;
+			color: #8b8b8b;
+		}
+		#wrapper{
+			position: absolute;
+			left:50%;
+			right:0;
+			top:50%;
+			transform: translate(-50%,-50%);
+			width: 100%;
+			max-width: 600px;
+			margin: 0 auto;
+			background: slategray;
+			overflow: hidden;
+		}
+		#canvas{
+		
+			display: block;
+			max-width: 100%;
+			max-height: 100%;
+			background-size: contain;
+			background-repeat: no-repeat;
+			margin: 10px auto;
+			border: 1px solid #54616B;
+		}
+		
+		#trace{
+			position: fixed;
+			top:10px;
+			right: 20px;
+			color: 8b8b8b;
+		}
+	</style>
+	<body>
+	<div id="wrapper">
+		<canvas id="canvas"></canvas>
+		
+		<div id="trace"></div>
+	</div>
+	
+	<script src="randompolygon.js"></script>
+	<script>
+
+	
+	var trace = document.getElementById('trace')
+	var width = 500
+	var height = 500
+	var cx =width / 2 | 0
+	var cy = height / 2 | 0
+	
+		
+	var canvas = document.getElementById('canvas')
+	var ctx = canvas.getContext('2d')
+	
+	canvas.width = width
+	canvas.height = height
+	
+	var last = 0
+	
+	function loop(t){
+		
+		var delta = t - last
+		
+		last = t
+		
+		if(delta > 20) delta = 20
+		
+		ctx.clearRect(0,0,width,height)
+		
+		draw(delta)
+		
+		requestAnimationFrame(loop)
+	}
+	
+	requestAnimationFrame(loop)
+	/*========================================*/
+	
+	
+	
+	
+	var size = 500
+	var iData = ctx.createImageData( size, size )
+	var data = iData.data
+	
+	drawPolygon( RandomPolygon( 250,250, 200 ), data, size, [0,0,0,255] )
+	ctx.putImageData( iData, 0, 0)
+	
+		
+	var pixels = floodFill( data, size, size, [250,250], [0,0,0, 0], [255,128, 0, 255 ])
+
+	var i = 0
+	
+	function draw( delta ){
+		
+		if( i  < pixels.length){
+			
+			for(var j=0; j<300; j++){
+				
+				colorPixel( data, pixels[i + j] , [0,128,255,255] )
+			}
+			i += 300
+		}
+		else{
+			
+			clearData( data )
+			
+			if( Math.random() < 0.2){
+				
+				drawCircle( 250, 250, ( 240 - Math.random()*100) | 0, data, size , [0,0,0, 255])
+			}
+			else
+			{
+				drawPolygon( RandomPolygon( 250,250, 150  ) , data, size, [0,0,0,255] )
+			}
+			
+			pixels = floodFill( data, size, size, 
+								[ (400 - Math.random()*300) | 0, (400 - Math.random()*300) | 0  ], 
+								[ 0, 0, 0, 0], 
+								[255,128, 0, 255 ])
+			
+			i = 0
+		}
+		
+		ctx.putImageData( iData, 0, 0 )
+	}
+	
+	
+	function floodFill( data, width, height, startPos,  targetColor, fillColor ){
+		
+		var pixelStack = [startPos]
+		var indexes = []
+		
+		while(pixelStack.length){
+			
+		  var newPos, x, y, pixelPos, reachLeft, reachRight
+		  
+		  newPos = pixelStack.pop()
+		  
+		  x = newPos[0];
+		  y = newPos[1];
+		  
+		  pixelPos = ( y * width + x ) * 4;
+		  
+		  while(y-- >= 0 && matchStartColor( data, pixelPos, targetColor) )
+		  {
+			pixelPos -= width * 4
+		  }
+		  pixelPos += width * 4
+		  
+		  ++y
+		  
+		  reachLeft = false
+		  reachRight = false
+		  
+		  while(y++ < height-1 && matchStartColor( data, pixelPos, targetColor ))
+		  {
+			colorPixel( data, pixelPos, fillColor)
+			indexes.push( pixelPos )
+
+			if(x > 0)
+			{
+			  if( matchStartColor( data, pixelPos - 4, targetColor))
+			  {
+				if(!reachLeft){
+				  pixelStack.push([x - 1, y])
+				  reachLeft = true
+				}
+			  }
+			  else if(reachLeft)
+			  {
+				reachLeft = false
+			  }
+			}
+			
+			if(x < width-1)
+			{
+			  if(matchStartColor( data, pixelPos + 4, targetColor ))
+			  {
+				if(!reachRight)
+				{
+				  pixelStack.push([x + 1, y]);
+				  reachRight = true
+				}
+			  }
+			  else if(reachRight)
+			  {
+				reachRight = false
+			  }
+			}
+					
+			pixelPos += width * 4
+		  }
+		}
+		
+		return indexes
+		
+	}
+	function matchStartColor( data, pixelPos, color)
+	{
+	  var r = data[pixelPos]	
+	  var g = data[pixelPos+1]
+	  var b = data[pixelPos+2]
+	  var a = data[pixelPos+3]
+
+	  return (r === color[0] && g === color[1] && b === color[2] && a === color[3] )
+	}
+
+	function colorPixel( data, pixelPos, color)
+	{
+	  data[pixelPos] =   color[0]
+	  data[pixelPos+1] = color[1]
+	  data[pixelPos+2] = color[2]
+	  data[pixelPos+3] = color[3]
+	}
+	function clearData(data){
+	
+		for(var i=0; i<data.length;i++) data[i] = 0;
+	}
+	function putLine( x0, x1, y, d, w, c ){
+		
+		for(var x = x0; x <= x1; x++){
+			
+			var i = ( x + y * w ) * 4
+			
+			d[i] = c[0]
+			d[i+1] = c[1]
+			d[i+2] = c[2]
+			d[i+3] = 255
+		}
+		
+	}
+	function putPixel(x,y,d,w,c){
+		
+		var i = ( x + y * w ) * 4
+		d[i] = c[0]
+		d[i+1] = c[1]
+		d[i+2] = c[2]
+		d[i+3] = 255
+	}
+	function drawPolygon( poly, d, w, c ){
+		
+		for( var i=0, l = poly.length; i<l; i++){
+			var p1x = poly[i][0] | 0
+			var p1y = poly[i][1] | 0
+			var p2x = poly[(i + 1) % l][0] | 0
+			var p2y = poly[(i + 1) % l][1] | 0
+			
+			 bline(p1x, p1y, p2x, p2y, d, w, c)
+		}
+	}
+	function drawCircle(x0, y0, radius, d, w, c)
+	{
+		var x = radius-1
+		var y = 0
+		var dx = 1
+		var dy = 1
+		var err = dx - (radius << 1)
+		
+		
+		while (x >= y)
+		{
+			
+			/*
+			putLine(x0 - x,x0 + x, y0 + y, d, w, c )
+			putLine(x0 - x,x0 + x, y0 - y, d, w, c )
+			putLine(x0 - y,x0 + y, y0 - x, d, w, c )
+			putLine(x0 - y,x0 + y, y0 + x, d, w, c )
+			*/
+			
+			putPixel( x0 + x, y0 - y, d, w, c )
+			putPixel( x0 - x, y0 - y, d, w, c )
+			putPixel( x0 + x, y0 + y, d, w, c )
+			putPixel( x0 - x, y0 + y, d, w, c )
+			
+			putPixel( x0 - y, y0 + x, d, w, c )
+			putPixel( x0 + y, y0 + x, d, w, c )
+		
+			putPixel( x0 - y, y0 - x, d, w, c )
+			putPixel( x0 + y, y0 - x, d, w, c )
+			
+			if (err < 0)
+			{
+				y += 1
+				err += dy
+				dy += 2
+			}
+			if (err >= 0)
+			{
+				x -= 1
+				dx += 2
+				err += dx - (radius << 1)
+			}
+		}
+	}
+	function bline(x0, y0, x1, y1,d,w,c) {
+ 
+	  var dx = Math.abs(x1 - x0), 
+		  sx = x0 < x1 ? 1 : -1;
+		  
+	  var dy = Math.abs(y1 - y0), 
+	      sy = y0 < y1 ? 1 : -1;
+		  
+	  var err = (dx>dy ? dx : -dy)/2;
+	 
+	  while (true) {
+	  
+		putPixel( x0, y0, d, w, c);
+		
+		if (x0 === x1 && y0 === y1) break;
+		
+		var e2 = err;
+		
+		if (e2 > -dx) { err -= dy; x0 += sx; }
+		
+		if (e2 < dy) { err += dx; y0 += sy; }
+	  }
+	}
+	
+	
+	
+	</script>
+	</body>
+</html>
