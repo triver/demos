@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+	<meta charset="utf-8">
+	<title>Line Of Sight</title>
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+	<style>
+	html,body{
+			margin:0;
+			padding:0;
+			width: 100%;
+			height: 100%;
+			overflow: hidden;
+		}
+		body{ 
+			background:slategray;
+			color: #8b8b8b;
+		}
+		#canvas{
+			position: absolute;
+			left:50%;
+			right:0;
+			top:50%;
+			bottom:0;
+			transform: translate(-50%,-50%);
+			display: block;
+			max-width: 100%;
+			max-height: 100%;
+			background-size: contain;
+			background-repeat: no-repeat;
+		}
+	</style>
+	<body>
+	<canvas id="canvas"></canvas>
+	<div id="trace"></div>
+	<script src="randompolygon.js"></script>
+	<script src="clip.js"></script>
+	<script>
+		
+	
+	var trace = document.getElementById('trace')
+	var width = 600
+	var height = 600
+	var cx =300
+	var cy = 300	
+	var canvas = document.getElementById('canvas')
+	var ctx = canvas.getContext('2d')
+	var last = 0
+	var mouse = {
+		
+		x: cx,
+		y: cy,
+		down:false,
+		ox:0,
+		oy:0,
+		dx:0,
+		dy:0,
+		update: function(e){
+			
+			var rect = e.target.getBoundingClientRect();
+		
+			var scale = 600 / rect.width
+
+			var x = (e.clientX - rect.left)*scale
+			var y = (e.clientY - rect.top)*scale
+			
+			this.x = x
+			this.y = y
+		}
+	}
+	canvas.width = width
+	canvas.height = height
+	//ctx.lineWidth = 2
+	
+	
+	
+	
+	/*========================================*/
+	var EPSILON = 0.00001
+	var polys =[
+	
+		//box
+		[ [0,0], [0,height], [width, height], [width,0] ],
+		
+		RandomPolygon( 150,150, 100),
+		RandomPolygon( 450,150, 100),
+		RandomPolygon( 450,450, 100),
+		RandomPolygon( 150,450, 100)
+	]
+	var guard = {
+		pos:[0,0],
+		path:[],
+		pathIndex:1,
+		angle:0,
+		angle2:0,
+		rangeA:[],
+		sight:[],
+		speed:50,
+		radius: 10,
+		dir:[0,0],
+		far: 3000,
+		fov: 0.9,
+		tan:0,
+		color:'#000000',
+		turning: false,
+		t:0,
+		delta:0,
+		line:[],
+		update: function(delta){
+			
+			delta *= 0.002
+			
+			if( this.turning ){
+				this.turn(delta)
+				return
+			}
+			
+			
+			this.t += this.delta*delta
+			this.pos = lerp( this.line[0], this.line[1], easeInOutQuad( this.t) )
+			this.calcSight()
+			
+			
+			if( this.t > 1 ){
+				
+				var target = this.path[ this.pathIndex].slice(0)
+				
+				this.pathIndex = (this.pathIndex +1) % this.path.length
+				
+				
+				var newTarget = this.path[ this.pathIndex]
+				
+				var angle = Math.atan2( newTarget[1] - this.pos[1] , newTarget[0] - this.pos[0] )
+				var angle2 = angle + shortestAngle(angle, this.angle)
+				
+				this.angle2 = angle
+				this.angle = angle2
+				
+				this.rangeA = [ Math.min( angle, angle2 ) , Math.max( angle, angle2 )]
+				
+				this.dir[0] = Math.cos( angle2 )
+				this.dir[1] = Math.sin( angle2 )
+				
+				
+				this.delta = 1 / Math.sqrt( distSq( target, newTarget) ) * this.speed
+			
+				this.line = [ target, newTarget.slice(0) ]
+				this.t=0
+				this.turning = true
+				
+			}
+			
+		},
+		turn:function(delta){
+			
+		
+			var diff =  (this.angle - this.angle2 ) 
+			
+			var s = 0.03* this.speed*delta
+			
+			if( Math.abs(diff) == 0 ){
+				
+				
+				this.angle = this.angle2
+				this.turning = false
+				return
+				
+			}
+			else if( diff < 0) this.angle += s
+			else this.angle -= s
+			
+			this.angle = clamp( this.angle, this.rangeA[0],this.rangeA[1] )
+			this.dir[0] = Math.cos( this.angle )
+			this.dir[1] = Math.sin( this.angle )
+			this.calcSight()
+		},
+		init: function( path, speed ){
+			
+			var pos = path[0].slice(0)
+			var target = path[1].slice(0)
+			var angle = Math.atan2( target[1] - pos[1] , target[0] - pos[0] )
+			var far = this.far
+			
+			this.pos = pos
+			this.path = path
+			this.pathIndex = 1
+			this.angle = angle
+			this.speed = speed || 50
+			this.dir = [ Math.cos( angle ) , Math.sin( angle ) ] 
+			this.delta = 1 / ( Math.sqrt( distSq(pos, target) ) + 0.0000001) * this.speed
+			this.line = [pos.slice(0), target.slice(0)]
+			this.tan = ( Math.tan(this.fov) ) * this.far
+			
+			this.calcSight()
+			
+		},
+		calcSight: function(){
+			
+			var pos = this.pos
+			var dir = this.dir
+			
+			var x = pos[0] + dir[0]*this.far
+			var y = pos[1] + dir[1]*this.far
+			
+			var a = pos.slice(0)
+			var b = [ x + dir[1] * this.tan , y - dir[0] * this.tan ]
+			var c = [ x - dir[1] * this.tan , y + dir[0] * this.tan ]
+		
+			this.sight = [ a, b, c ]
+			
+		},
+		draw:function(ctx){
+			
+			ctx.beginPath()
+			ctx.arc(this.pos[0],this.pos[1], this.radius,0,Math.PI*2)
+			ctx.fillStyle ='black'
+			ctx.fill()
+			
+			var x = this.pos[0] + this.dir[0]*this.radius
+			var y = this.pos[1] + this.dir[1]*this.radius
+			
+			ctx.beginPath()
+			ctx.moveTo(this.pos[0],this.pos[1])
+			ctx.lineTo(x,y)
+			ctx.strokeStyle ='red'
+			ctx.stroke()
+		}
+	}
+	
+	var player = {
+		pos:[80, 50],
+		radius: 10,
+		color: 'gray',
+		draw: function(ctx){
+			
+			ctx.beginPath()
+			ctx.arc(this.pos[0],this.pos[1], this.radius,0,Math.PI*2)
+			ctx.fillStyle = this.color
+			ctx.fill()
+			
+		}
+		
+	}
+	var guardPath = [
+		[cx,cy], 
+		[300, 20],
+		[20,20],
+		[20,300], 
+		[580, 300],
+		[580,580],
+		[300,580],
+		[300,20],
+		[580,20],
+		[580,300]
+	]
+	var guardSpeed = 50
+	
+	guard.init( guardPath, guardSpeed )
+	
+	console.dir( guard )
+	
+	drawBackground( canvas, polys)
+	requestAnimationFrame(loop)
+	
+	//draw(0)
+	
+	function draw(delta){
+		
+		var i,j,k,l
+		
+	
+		var angles = []
+		
+		for(i=0; i < polys.length;i++){
+			for(j=0, l= polys[i].length; j < l; j++){
+				
+				var p = polys[i][j]
+				var angle = Math.atan2( p[1] - guard.pos[1], p[0] - guard.pos[0] )
+				angles.push( angle + EPSILON, angle, angle - EPSILON )
+			}
+		}
+		
+		angles.sort(compare)
+	
+		var intersects = getIntersects(guard, polys, angles)
+		
+		if(intersects && intersects.length){
+			
+			ctx.beginPath()
+			ctx.moveTo(intersects[0][0],intersects[0][1])
+			
+			for(i=0, l=intersects.length; i< l;i++){
+				
+				ctx.lineTo(intersects[i][0],intersects[i][1])
+			}
+			
+			ctx.fillStyle = 'rgba(204, 255, 51,0.6)'
+			ctx.fill()
+		}
+			
+		var sight = Clip( intersects, guard.sight)
+		
+		if(sight.length ) drawPolygon( ctx, sight, 'rgba(204, 255, 51,0.5)')
+		
+		
+		//guard
+		guard.draw(ctx)
+		guard.update( delta)
+		
+		
+		//player
+		if( inPolygon( sight, player.pos) ) player.color = 'red'
+		else if( inPolygon( intersects, player.pos) ) player.color = 'orange'
+		else player.color = 'green'
+		
+		player.draw( ctx )
+		
+		
+	}
+	function getIntersects(guard, polys, angles){
+		
+		var intersects = []
+		var i,j,k,l	
+		for(i=0; i < angles.length; i++){
+			
+			var theta = angles[i]
+			var ray = [guard.pos,[guard.pos[0] + Math.cos(theta), guard.pos[1] + Math.sin(theta) ]]
+			
+			var closest = null
+			
+			for(j=0; j< polys.length; j++){
+				
+				
+				for(k=0, l= polys[j].length; k < l; k++){
+				
+					var a = polys[j][k]
+					var b = polys[j][(k+1) % l]
+					
+					var intersect = rayLineIntersect( ray, [a,b])
+					
+					if(!intersect) continue
+					if(!closest || intersect.param < closest.param) closest = intersect
+			
+				}
+			}
+			
+			if( closest ) intersects.push( closest )
+		}
+		
+		return intersects
+		
+	}
+	function drawBackground( canvas, polys){
+		
+		var ctx = canvas.getContext('2d')
+		var w = canvas.width
+		var h = canvas.height
+		var bg = polys[0]
+		
+		ctx.fillStyle = '#000'
+		ctx.fillRect(0,0,w,h)
+		
+		ctx.beginPath()
+		for(var n=1; n<polys.length;n++){
+			
+			var p = polys[n]
+			
+			ctx.moveTo( p[0][0],p[0][1])
+			for( var i=1,l=p.length; i<l + 1; i++) {
+				
+				var v = p[i % l]
+				ctx.lineTo( v[0],v[1])
+			}
+		}
+		ctx.fillStyle = 'blue'
+		ctx.strokeStyle = 'ivory'
+		ctx.lineWidth = 4
+		ctx.fill()
+		ctx.stroke()
+		
+		canvas.style.backgroundImage = 'url('+canvas.toDataURL('image/png')+')'
+		
+		ctx.clearRect( 0,0,width,height)
+	}
+	function drawPolygon( ctx, p ,c){
+		
+		ctx.beginPath()
+		ctx.moveTo( p[0][0],p[0][1])
+		for( var i=1; i<p.length; i++) {
+			ctx.lineTo( p[i][0],p[i][1])
+		}
+		ctx.closePath()
+		if(c) ctx.fillStyle = c
+		ctx.fill()
+	}
+	function drawLine( ctx, line, c ){
+		
+		ctx.beginPath()
+		ctx.moveTo( line[0][0], line[0][1] )
+		ctx.lineTo( line[1][0], line[1][1] )
+		
+		if(c) ctx.strokeStyle = c
+		ctx.stroke()
+	}
+	function drawCircle( ctx, pos, r, c ){
+		
+		
+		ctx.moveTo( pos[0], pos[1] )
+		ctx.beginPath()
+		ctx.arc( pos[0], pos[1], r, 0, Math.PI*2  )
+		
+		if(c) ctx.fillStyle = c
+		ctx.fill()
+	}
+	
+	function inPolygon(vs,point) {
+			
+		var x = point[0], y = point[1];
+
+		var inside = false;
+		for (var i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+			var xi = vs[i][0], yi = vs[i][1];
+			var xj = vs[j][0], yj = vs[j][1];
+
+			var intersect = ((yi > y) != (yj > y))
+				&& (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+			if (intersect) inside = !inside;
+		}
+
+		return inside;
+	}
+	
+	function rayLineIntersect(ray,segment){
+		
+		var ra = ray[0]
+		var rb = ray[1]
+		var sa = segment[0]
+		var sb = segment[1]
+
+		var r_px = ra[0]
+		var r_py = ra[1]
+		var r_dx = rb[0]-ra[0]
+		var r_dy = rb[1]-ra[1]
+		
+		
+		var s_px = sa[0]
+		var s_py = sa[1]
+		var s_dx = sb[0] - sa[0]
+		var s_dy = sb[1] - sa[1]
+		
+		
+	
+		if (Math.abs(s_dx - r_dx) > 0 && Math.abs(s_dy - r_dy) > 0){
+		
+			if(r_dx == 0) r_dx = 0.0000001
+			
+			var T2 = (r_dx*(s_py-r_py) + (r_dy*(r_px-s_px)))/( s_dx*r_dy - s_dy*r_dx )
+			var T1 = ( s_px + s_dx * T2 - r_px ) / r_dx;
+			
+			
+			if (T1 > 0 && T2 >= 0 && T2 <= 1.0){
+				
+				var r = [ r_px + r_dx * T1, r_py + r_dy * T1 ]
+				r.param = T1
+				
+				return r
+			}
+		}
+		
+		return false
+	}
+	function lineLineIntersect( l0, l1 ){
+		
+		var p0 = l0[0],
+			p1 = l0[1],
+			p2 = l1[0],
+			p3 = l1[1]
+			
+		var s1x = p1[0] - p0[0],
+			s1y = p1[1] - p0[1],
+			s2x = p3[0] - p2[0],
+			s2y = p3[1] - p2[1],
+			s,t
+		
+	   var q = -s2x * s1y + s1x * s2y
+	   
+	   if(q===0) return false
+	   
+	   var dx = p0[0] - p2[0]
+	   var dy = p0[1] - p2[1]
+	   
+	   s = (-s1y * dx + s1x * dy ) / q
+	   t = ( s2x * dy - s2y * dx ) / q
+
+		if (s >= 0 && s <= 1 && t >= 0 && t <= 1){
+			
+		   var x = p0[0] + t * s1x
+		   var y = p0[1] + t * s1y
+		   
+		   return [ x, y]
+		}
+
+		return false
+	}
+	function distSq(p1,p2){
+		
+		return (p2[0] - p1[0])*(p2[0] - p1[0]) + ((p2[1] - p1[1])*(p2[1] - p1[1]));
+	}
+	function compare(a,b){
+		return a - b
+	}
+	function slope(p0,p1){
+		return (p1[1] - p0[1]) / (p1[0] - p0[0] )
+	}
+	function mod(a, n){
+		return (a % n + n) % n
+	}
+	function shortestAngle(a, b){
+		
+		if (Math.abs(b-a) < Math.PI )
+			return b-a
+		if (b>a)
+			return b - a - Math.PI * 2
+		return b - a  + Math.PI * 2
+	}
+	function lerp(p1,p2,t){
+		
+		return [ p1[0] + t*( p2[0] - p1[0] ), p1[1] + t*(p2[1] - p1[1] )] ;
+	}
+	function clamp(num, min, max) {
+		return num < min ? min : (num > max ? max : num);
+	}
+	function easeInOutQuad(t) { return t<.5 ? 2*t*t : -1+(4-2*t)*t }
+	/*=======================================*/
+	
+	function loop(t){
+		
+		var delta = t - last
+		
+		last = t
+		
+		if(delta > 20) delta = 20
+		
+		ctx.clearRect(0,0,width,height)
+	
+		
+		draw(delta)
+		
+		requestAnimationFrame(loop)
+	}
+	
+	
+	
+	//interact
+	function onMouseDown(e){
+		
+		mouse.update(e)
+		mouse.down = true
+		
+		
+	}
+	function onMouseUp(e){
+		
+		mouse.update(e)
+		mouse.down = false
+		mouse.dx=0
+		mouse.dy=0
+		
+		
+	}
+	function onMouseMove(e){
+		
+		mouse.update(e)
+		
+	
+	}
+	function onClick(e){
+		
+		mouse.update(e)
+		player.pos = [mouse.x,mouse.y]
+	
+	}
+	canvas.addEventListener('mousedown',onMouseDown,false)
+	canvas.addEventListener('mouseup',onMouseUp,false)
+	canvas.addEventListener('mousemove',onMouseMove,false)
+	canvas.addEventListener('click',onClick,false)
+	</script>
+	</body>
+</html>
