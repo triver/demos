@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+	<meta charset="utf-8">
+	<title>Line Of Sight</title>
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+	<style>
+	html,body{
+			margin:0;
+			padding:0;
+			width: 100%;
+			height: 100%;
+			overflow: hidden;
+		}
+		body{ 
+			background:slategray;
+			color: #8b8b8b;
+		}
+		#wrapper{
+			position: absolute;
+			left:50%;
+			right:0;
+			top:50%;
+			transform: translate(-50%,-50%);
+			width: 100%;
+			max-width: 600px;
+			margin: 0 auto;
+			background: black;
+			overflow: hidden;
+		}
+		#canvas{
+			/*
+			position: absolute;
+			left:50%;
+			right:0;
+			top:50%;
+			transform: translate(-50%,-50%);
+			*/
+			display: block;
+			max-width: 70%;
+			max-height: 100%;
+			background-size: contain;
+			background-repeat: no-repeat;
+			margin: 0 0 20% 0;
+			border: 1px solid #333;
+		}
+		#canvas3d{
+			/*
+			position: fixed;
+			left:0;
+			top:0;
+			display: block;
+			*/
+			max-width: 100%;
+			height: auto;
+			/*outline: 1px solid #333;*/
+			background: black;
+		}
+		#trace{
+			position: fixed;
+			top:10px;
+			right: 20px;
+			color: 8b8b8b;
+		}
+	</style>
+	<body>
+	<div id="wrapper">
+		<canvas id="canvas"></canvas>
+		<canvas id="canvas3d"></canvas>
+		<div id="trace"></div>
+	</div>
+	<script src="randompolygon.js"></script>
+	<script src="spline.js"></script>
+	<script>
+		
+	var EPSILON = 0.00001
+	var PI2 = Math.PI*2
+	var PI_2=PI2
+	var HALF_PI = Math.PI/2
+	var trace = document.getElementById('trace')
+	var width = 600
+	var height = 600
+	var cx =300
+	var cy = 300
+	var width3d = 600
+	var height3d = 200
+	var cx3d = 300
+	var cy3d = 100
+		
+	var canvas = document.getElementById('canvas')
+	var ctx = canvas.getContext('2d')
+	
+	var canvas3d = document.getElementById('canvas3d')
+	var ctx3 = canvas3d.getContext('2d')
+	
+	canvas3d.width = width3d
+	canvas3d.height = height3d
+	
+	var leftDown = false
+	var rightDown = false
+	var upDown = false
+	var downDown = false
+	
+	var last = 0
+	
+	canvas.width = width
+	canvas.height = height
+	ctx.lineWidth = 2
+	
+	ctx3.lineWidth = 2
+	
+	
+	/*========================================*/
+	var pathPoints =[[438.21,63.79],[356.2,122.38],[253.05,278.96],[85.51,396.07],[56.81,495.02],[127.78,544.58],[221.37,512.19],[247.78,394.48],[183.72,280.07],[63.4,169.64],[79.84,69.87],[193.56,56.42],[320.93,194.68],[441.32,254.76],[537.1,204.43],[529.63,102.87]]
+	var polys =[
+	
+		//box
+		[ [0,0], [0,height], [width, height], [width,0] ],
+		
+		RandomPolygon( 150,150,80),
+		RandomPolygon( 450,150, 80),
+		RandomPolygon( 450,450, 80),
+		RandomPolygon( 150,450, 80)
+	]
+	var player = {
+		x:0,
+		y:0,
+		angle:0,
+		speed:2,
+		dir:[0,0],
+		turnSpeed: 0,
+		radius:10,
+		color:'#00ff00',
+		fov: 0.78,
+		distance: 0,
+		path: null,
+		move:function(dir,delta){
+			
+			delta *= 0.01
+			
+			var vx = this.dir[0]*this.speed*delta*dir
+			var vy = this.dir[1]*this.speed*delta*dir
+			
+			var x = this.x + vx 
+			var y = this.y + vy 
+			
+			if( x >= this.radius &&
+				x <= width - this.radius &&
+				y >= this.radius &&
+				y <= height - this.radius &&
+				!inPolygons( polys, [x + this.dir[0]*this.radius,y + this.dir[1]*this.radius] )
+				
+			){
+				this.x = x
+				this.y = y
+			}
+		
+		},
+		moveAlongPath: function( dir,delta){
+			
+			if(!this.path) return
+			
+			delta *= 0.01
+			
+			this.distance += this.speed * delta * dir
+			
+			if(this.distance > this.path.length) this.distance = 0
+			if(this.distance < 0 ) this.distance = this.path.length - 0.00001
+			
+			var marker = this.path.setMarker( this.distance )
+			
+			this.x = marker[0]
+			this.y = marker[1]
+			this.angle = marker[2]
+			this.dir =[Math.cos(this.angle), Math.cos(this.angle) ]
+			
+			
+		},
+		turn:function(dir,delta){
+			
+			delta *= 0.0005
+			this.angle -= this.turnSpeed*dir*delta
+			
+			if(this.angle > Math.PI)
+				this.angle -= PI2
+			if(this.angle < -Math.PI)
+				this.angle += PI2
+	
+			this.dir = [ Math.cos(this.angle), Math.sin(this.angle) ]
+		},
+		init:function( x,y,a,s,ts){
+			
+			this.x = x
+			this.y = y
+			this.angle = a || 0
+			this.speed = s || 10
+			this.dir = [ Math.cos(this.angle), Math.sin(this.angle)]
+			this.turnSpeed = ts || 5
+			this.path = new Spline( pathPoints, true, cx, cy, 200)
+			this.path.setMarker(0)
+			this.distance = 0
+			var path = this.path
+			this.moveAlongPath(1,0)
+			//SplineEditor( canvas, path )
+		},
+		draw: function(ctx,c){
+			
+			ctx.moveTo( this.x,this.y)
+			ctx.beginPath()
+			ctx.arc( this.x,this.y, this.radius, 0, PI2)
+			ctx.fillStyle = this.color
+			ctx.fill()
+			
+			var x = this.x + this.dir[0]*this.radius
+			var y = this.y + this.dir[1]*this.radius
+			
+			
+			ctx.beginPath()
+			ctx.moveTo( this.x,this.y)
+			ctx.lineTo( x, y)
+			ctx.stroke()
+		},
+		drawPath: function( ctx ){
+			
+			for(var i=0, l=this.curves.length; i<l; i++){
+				drawCurve( ctx, this.curves[i], 'olive')
+			}
+			
+		}
+	}
+	
+
+	player.init( cx, cy, Math.PI/2 )
+
+	drawBackground( canvas, polys)
+	requestAnimationFrame(loop)
+	
+	//draw(0)
+	
+	function draw(delta){
+		
+		
+		player.path.drawCurve(ctx,'#54616B', 2)
+		player.path.drawPoints(ctx, 3, '#54616B')
+		
+		var i,j,k,l, offset
+		ctx.lineWidth = 2
+		//player.drawPath(ctx)
+		
+		var angles = []
+		
+		var left = wrapAngle( player.angle - player.fov )
+		var right = wrapAngle( player.angle + player.fov )
+		
+		
+		
+		
+		
+		for(i=0; i < polys.length;i++){
+			for(j=0, l= polys[i].length; j < l; j++){
+				
+				var p = polys[i][j]
+				
+				var angle = Math.atan2( p[1] - player.y, p[0] - player.x )
+				 
+				if( isAngleBetween( angle, wrapAngle(left - EPSILON), wrapAngle(right + EPSILON) ) ){
+					   
+					angles.push( wrapAngle( angle + EPSILON), angle, wrapAngle( angle - EPSILON ) )
+				}
+			
+			}
+		}
+		
+		angles.push( 
+		left,
+		right
+		)
+		
+		if( isAngleBetween( player.angle,  Math.PI - player.fov, -Math.PI + player.fov )){
+			
+			angles.sort(function(a,b){
+				
+				
+				var aa = wrapAngle( a - Math.PI)
+				var bb = wrapAngle( b - Math.PI)
+				
+				return bb - aa
+			})
+			
+			
+			
+		}
+		else
+		{
+			
+			angles.sort(function(a,b){
+				
+				return b - a
+			})
+			
+			
+		}
+		
+		//draw 3d
+	
+		var intersects = getIntersects( player, polys, angles)
+		
+		//filter
+		
+		for( i = 0; i < intersects.length ; i++ ){
+			
+			var p = intersects[i]
+			
+			
+			
+			if( i < 1 || i > intersects.length - 2 || p.pid === 0) {
+				
+				p.valid = true
+				continue
+			}
+			
+			for(j=0; j < polys.length ; j++){
+				
+				var poly = polys[j]
+				var flag = true
+				
+				
+				for(k=0, l=poly.length;k<l; k++){
+					
+					var a = poly[k]
+					var b = poly[(k+1) % l]
+					var d1 = Math.abs(distSq( a, p ))
+					var d2 = Math.abs(distSq( b, p ))
+					
+					if( onLine(a,b,p ) ){
+						
+						if(  d1 < 0.1 || d2 < 0.1 ){
+							p.valid = true
+							p.isCorner = true
+							flag = false
+							break
+						}
+						
+					}
+				}
+				
+				if(!flag) break
+			}
+		}
+		
+		
+		
+		var offset = shortestAngle(  player.angle, 0)
+		var pairs =[]
+		
+		for(i=0, l=angles.length; i < l;i++){
+			
+			if(!intersects[i]) continue
+			
+			var x = cx3d + (wrapAngle( angles[i] + offset) ) * width3d
+			var d = Math.sqrt( distSq( [ player.x, player.y], intersects[i] ) )*0.04
+			
+			var ceiling = cy3d - ( height3d / d) 
+			var floor = height3d - ceiling
+			
+			pairs.push( [ x, ceiling, floor, d, angles[i], intersects[i] ])
+		}
+		
+	
+		var  p1 = pairs[0],p2
+		
+		for(i=1, l=pairs.length ; i < l ;i++){
+			
+			p2 = pairs[i]
+			
+			var d = (p1[3] + p2[3] ) / 2
+			var shade =  (255 - ((d / 24) * 255 )) | 0 
+			var color = 'rgb('+shade+','+shade+','+shade+')'
+			
+			
+			ctx3.beginPath()
+			ctx3.moveTo(p1[0], p1[1])
+			ctx3.lineTo(p1[0], p1[2])
+			ctx3.lineTo(p2[0], p2[2])
+			ctx3.lineTo(p2[0], p2[1])
+			ctx3.lineTo(p1[0], p1[1])
+			ctx3.strokeStyle = color
+			ctx3.fillStyle = color
+			ctx3.fill()
+			ctx3.stroke()
+			
+			if(p1[5].valid){
+				ctx3.strokeStyle = 'black'
+				ctx3.beginPath()
+				ctx3.moveTo(p1[0], p1[1] - 1)
+				ctx3.lineTo(p1[0], p1[2] + 1)
+				ctx3.stroke()
+			}
+			
+			if(p2[5].valid){
+				ctx3.strokeStyle = 'black'
+				ctx3.beginPath()
+				ctx3.moveTo(p2[0], p2[1] - 1)
+				ctx3.lineTo(p2[0], p2[2]  + 1)
+				ctx3.stroke()
+			}
+			
+			p1 = p2
+			
+		}	
+		//draw rays
+		ctx.strokeStyle = 'orange'
+		ctx.beginPath()		
+		
+		for(i=0, l=intersects.length; i< l;i++){
+			
+			if(!intersects[i].valid) continue
+			
+			ctx.moveTo( player.x, player.y )
+			ctx.lineTo( intersects[i][0], intersects[i][1] )
+			
+		}
+	
+		ctx.stroke()
+		
+		
+		if( upDown) player.moveAlongPath( 1, delta )
+		else if(downDown) player.moveAlongPath( -1, delta )
+		else player.moveAlongPath( 1,  delta )
+		//player.draw(ctx)
+		
+		/*
+		//controls
+		if( upDown) player.move(1,delta)
+		else if(downDown) player.move( -1, delta)
+		
+		if( leftDown) player.turn(1,delta)
+		else if(rightDown) player.turn( -1, delta)
+		
+		
+		*/
+		
+	}
+	
+	
+	function drawCurve( ctx, curve , color){
+		
+		ctx.beginPath()
+		ctx.moveTo( curve[0][0], curve[0][1])
+		ctx.bezierCurveTo(
+			curve[1][0], curve[1][1],
+			curve[2][0], curve[2][1],
+			curve[3][0], curve[3][1]
+		)
+		if(color) ctx.strokeStyle = color
+		ctx.stroke()
+	}
+	
+	/*===============================*/
+	function derivative(p,t) {
+			
+		var mt = 1 - t,
+			a = mt * mt,
+			b = mt * t * 2,
+			c = t * t
+			
+		return [ 
+			a * p[0][0] + b * p[1][0] + c * p[2][0], 
+			a * p[0][1] + b * p[1][1] + c * p[2][1] 
+		]
+
+	}
+	
+	function computeBezierPoint(p,t) {
+			
+		if (t === 0) {
+		return p[0]
+		}
+		if (t === 1) {
+		return p[3]
+		}
+
+		var mt = 1 - t,
+			mt2 = mt * mt,
+			t2 = t * t,
+			a = mt2 * mt,
+			b = mt2 * t * 3,
+			c = mt * t2 * 3,
+			d = t * t2
+
+
+		return [ 
+		
+		a * p[0][0] + b * p[1][0] + c * p[2][0] + d * p[3][0],
+		a * p[0][1] + b * p[1][1]  + c * p[2][1]  + d * p[3][1] 
+		
+		]
+
+	}
+	function wrapAngle(a){
+		
+		if(a > Math.PI)
+			a -= PI2
+		else if( a < -Math.PI)
+			a += PI2
+			
+		return a
+	}
+	function onLine(line1, line2, pnt) {
+		
+		var L2 = ( ((line2[0] - line1[0]) * (line2[0] - line1[0])) + ((line2[1] - line1[1]) * (line2[1] - line1[1])) );
+		if(L2 === 0) return false;
+		var r = ( ((pnt[0] - line1[0]) * (line2[0] - line1[0])) + ((pnt[1] - line1[1]) * (line2[1] - line1[1])) ) / L2;
+
+		return (0 <= r) && (r <= 1);
+	}
+	function isAngleBetween(target, angle1, angle2)
+	{
+		var PI_2 = Math.PI*2
+		var rAngle = ((angle2 - angle1) % PI_2 + PI_2) % PI_2
+		if (rAngle >= Math.PI)
+		{
+			var swap = angle1
+			angle1 = angle2
+			angle2 = swap
+		}
+
+		if (angle1 <= angle2)
+		{
+			return target >= angle1 && target <= angle2
+		}
+		else
+		{
+			return target >= angle1 || target <= angle2
+		}
+	}
+	function normalizeAngle(radians)
+	{
+		return radians - PI_2 * Math.floor(radians / PI_2)
+	}
+	
+	function getIntersects(guard, polys, angles){
+		
+		var intersects = []
+		var i,j,k,l	
+		for(i=0; i < angles.length; i++){
+			
+			var theta = angles[i]
+			var ray = [[player.x, player.y],[player.x + Math.cos(theta), player.y + Math.sin(theta) ]]
+			
+			var closest = null
+			
+			for(j=0; j< polys.length; j++){
+				
+				
+				for(k=0, l= polys[j].length; k < l; k++){
+				
+					var a = polys[j][k]
+					var b = polys[j][(k+1) % l]
+					
+					var intersect = rayLineIntersect( ray, [a,b])
+					
+					if(!intersect) continue
+					if(!closest || intersect.param < closest.param) {
+						closest = intersect
+						closest.pid = j//polygon id
+						closest.valid = false
+					}
+			
+				}
+			}
+			
+			if( closest ) intersects.push( closest )
+		}
+		
+		return intersects
+		
+	}
+	function drawBackground( canvas, polys){
+		
+		var ctx = canvas.getContext('2d')
+		var w = canvas.width
+		var h = canvas.height
+		var bg = polys[0]
+		
+		ctx.fillStyle = '#000'
+		ctx.fillRect(0,0,w,h)
+		
+		ctx.beginPath()
+		for(var n=1; n<polys.length;n++){
+			
+			var p = polys[n]
+			
+			ctx.moveTo( p[0][0],p[0][1])
+			for( var i=1,l=p.length; i<l + 1; i++) {
+				
+				var v = p[i % l]
+				ctx.lineTo( v[0],v[1])
+			}
+		}
+		ctx.fillStyle = '#2A4F6B'
+		ctx.strokeStyle = 'ivory'
+		ctx.lineWidth = 2
+		ctx.fill()
+		ctx.stroke()
+		
+		canvas.style.backgroundImage = 'url('+canvas.toDataURL('image/png')+')'
+		
+		ctx.clearRect( 0,0,width,height)
+		ctx.lineWidth=2
+	}
+	function drawPolygon( ctx, p ,c){
+		
+		ctx.beginPath()
+		ctx.moveTo( p[0][0],p[0][1])
+		for( var i=1; i<p.length; i++) {
+			ctx.lineTo( p[i][0],p[i][1])
+		}
+		ctx.closePath()
+		if(c) ctx.fillStyle = c
+		ctx.fill()
+	}
+	function drawLine( ctx, line, c ){
+		
+		ctx.beginPath()
+		ctx.moveTo( line[0][0], line[0][1] )
+		ctx.lineTo( line[1][0], line[1][1] )
+		
+		if(c) ctx.strokeStyle = c
+		ctx.stroke()
+	}
+	function drawCircle( ctx, pos, r, c ){
+		
+		
+		ctx.moveTo( pos[0], pos[1] )
+		ctx.beginPath()
+		ctx.arc( pos[0], pos[1], r, 0, Math.PI*2  )
+		
+		if(c) ctx.fillStyle = c
+		ctx.fill()
+	}
+	
+	function inPolygons(vs,point) {
+			
+		var inside = false
+		
+		for(var i =1; i< vs.length; i++){
+			
+			if( inPolygon( vs[i], point ) ) return true
+		}
+		
+		return inside
+	}
+	function inPolygon(vs,point) {
+			
+		var x = point[0], y = point[1];
+
+		var inside = false;
+		for (var i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+			var xi = vs[i][0], yi = vs[i][1];
+			var xj = vs[j][0], yj = vs[j][1];
+
+			var intersect = ((yi > y) != (yj > y))
+				&& (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+			if (intersect) inside = !inside;
+		}
+
+		return inside;
+	}
+	
+	function rayLineIntersect(ray,segment){
+		
+		var ra = ray[0]
+		var rb = ray[1]
+		var sa = segment[0]
+		var sb = segment[1]
+
+		var r_px = ra[0]
+		var r_py = ra[1]
+		var r_dx = rb[0]-ra[0]
+		var r_dy = rb[1]-ra[1]
+		
+		
+		var s_px = sa[0]
+		var s_py = sa[1]
+		var s_dx = sb[0] - sa[0]
+		var s_dy = sb[1] - sa[1]
+		
+		
+	
+		if (Math.abs(s_dx - r_dx) > 0 && Math.abs(s_dy - r_dy) > 0){
+		
+			if(r_dx == 0) r_dx = 0.0000001
+			
+			var T2 = (r_dx*(s_py-r_py) + (r_dy*(r_px-s_px)))/( s_dx*r_dy - s_dy*r_dx )
+			var T1 = ( s_px + s_dx * T2 - r_px ) / r_dx;
+			
+			
+			if (T1 > 0 && T2 >= 0 && T2 <= 1.0){
+				
+				var r = [ r_px + r_dx * T1, r_py + r_dy * T1 ]
+				r.param = T1
+				
+				return r
+			}
+		}
+		
+		return false
+	}
+	function lineLineIntersect( l0, l1 ){
+		
+		var p0 = l0[0],
+			p1 = l0[1],
+			p2 = l1[0],
+			p3 = l1[1]
+			
+		var s1x = p1[0] - p0[0],
+			s1y = p1[1] - p0[1],
+			s2x = p3[0] - p2[0],
+			s2y = p3[1] - p2[1],
+			s,t
+		
+	   var q = -s2x * s1y + s1x * s2y
+	   
+	   if(q===0) return false
+	   
+	   var dx = p0[0] - p2[0]
+	   var dy = p0[1] - p2[1]
+	   
+	   s = (-s1y * dx + s1x * dy ) / q
+	   t = ( s2x * dy - s2y * dx ) / q
+
+		if (s >= 0 && s <= 1 && t >= 0 && t <= 1){
+			
+		   var x = p0[0] + t * s1x
+		   var y = p0[1] + t * s1y
+		   
+		   return [ x, y]
+		}
+
+		return false
+	}
+	function snapTo( value, target ){ 
+			return Math.round(value /target ) * target; 
+		}
+	function distSq(p1,p2){
+		
+		return (p2[0] - p1[0])*(p2[0] - p1[0]) + ((p2[1] - p1[1])*(p2[1] - p1[1]));
+	}
+	function range( value, r1, r2 ) { 
+		return ( value - r1[ 0 ] ) * ( r2[ 1 ] - r2[ 0 ] ) / ( r1[ 1 ] - r1[ 0 ] ) + r2[ 0 ];
+	}
+	
+	function compare(a,b){
+		
+		var s = shortestAngle( a , b)
+		return (s+a) - (s+b)
+	}
+	
+	
+	function slope(p0,p1){
+		return (p1[1] - p0[1]) / (p1[0] - p0[0] )
+	}
+	
+	function mod(a, n){
+		return (a % n + n) % n
+	}
+	function shortestAngle(a, b){
+		
+		if (Math.abs(b-a) < Math.PI )
+			return b-a
+		if (b>a)
+			return b - a - Math.PI * 2
+		return b - a  + Math.PI * 2
+	}
+	function lerp(p1,p2,t){
+		
+		return [ p1[0] + t*( p2[0] - p1[0] ), p1[1] + t*(p2[1] - p1[1] )] ;
+	}
+	function clamp(num, min, max) {
+		return num < min ? min : (num > max ? max : num);
+	}
+	function easeInOutQuad(t) { return t<.5 ? 2*t*t : -1+(4-2*t)*t }
+	/*=======================================*/
+	
+	function loop(t){
+		
+		var delta = t - last
+		
+		last = t
+		
+		var d = delta
+		if(delta > 20) delta = 20
+		
+		ctx.clearRect(0,0,width,height)
+		ctx3.clearRect(0,0,width,height)
+	
+		
+		draw(delta)
+		trace.textContent = d.toFixed(2)
+		requestAnimationFrame(loop)
+	}
+	
+	
+	
+	//interact
+	function onKeyDown(e) {
+		
+		if(e.keyCode == 39 || e.keyCode == 68) {
+			rightDown = true
+		}
+		else if(e.keyCode == 37 || e.keyCode == 65) {
+			
+			leftDown = true
+			
+			var pts = player.path.points.map( function( a ){
+				
+				return [ +a[0].toFixed(2),  +a[1].toFixed(2) ]
+				
+			})
+			
+			console.log( JSON.stringify( pts ) ) 
+		}
+		if(e.keyCode == 40 || e.keyCode == 83 ) {
+			downDown = true
+			
+		}
+		else if(e.keyCode == 38 || e.keyCode == 87) {
+			upDown = true
+		}
+	}
+	function onKeyUp(e) {
+		
+		if(e.keyCode == 39 || e.keyCode == 68) {
+			rightDown = false
+		}
+		else if(e.keyCode == 37 || e.keyCode == 65) {
+			leftDown = false
+		}
+		if(e.keyCode == 40 || e.keyCode == 83) {
+			downDown = false
+		}
+		else if(e.keyCode == 38 || e.keyCode == 87) {
+			upDown = false
+		}
+	}
+	
+	document.addEventListener('keydown', onKeyDown, false)
+	document.addEventListener('keyup', onKeyUp, false)
+	
+	</script>
+	</body>
+</html>
