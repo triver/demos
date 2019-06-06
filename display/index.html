@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+	<meta charset="utf-8">
+	<title>Low Resolution Display</title>
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+	<style>
+	html,body{
+			margin:0;
+			padding:0;
+			width: 100%;
+			height: 100%;
+			overflow: hidden;
+		}
+		body{ 
+			background:black;
+			color: #8b8b8b;
+		}
+		#wrapper{
+			position: absolute;
+			left:50%;
+			right:0;
+			top:50%;
+			transform: translate(-50%,-50%);
+			width: 100%;
+			max-width: 600px;
+			margin: 0 auto;
+			overflow: hidden;
+		}
+		#canvas{
+		
+			display: block;
+			max-width: 100%;
+			max-height: 100%;
+			background: black;
+			margin: 10px auto;
+		}
+		
+		#trace{
+			
+			position: fixed;
+			top:10px;
+			right: 20px;
+			color: black;
+		}
+	</style>
+	<body>
+	<div id="wrapper">
+		<canvas id="canvas"></canvas>
+		
+		
+	</div>
+	<div id="trace"></div>
+	<script src="simplex.js"></script>
+	<script>
+
+	
+	var trace = document.getElementById('trace')
+	var width = 510
+	var height = 510
+	var cx =width / 2 | 0
+	var cy = height / 2 | 0
+
+	var canvas = document.getElementById('canvas')
+	var ctx = canvas.getContext('2d')
+	
+	canvas.width = width
+	canvas.height = height
+	
+	
+	/*========================================*/
+	
+	function Display(width,height){
+		
+		this.width = width
+		this.height = height
+		this.grid = new Array( width*height ).fill( 0) 
+	}
+	Display.prototype.clear = function( x, y ){
+		
+		this.grid = new Array(this.width*this.height).fill(0)
+	}
+	Display.prototype.fillRandom = function( ){
+		
+		for(var i = this.grid.length-1; i>= 0; --i){
+			
+			if(Math.random() < 0.5) this.grid[i] = 1
+		}
+	}
+	Display.prototype.pixel = function( x, y, v ){
+		
+		x |= 0
+		y |= 0
+		v = v || 1
+		if(x >= 0 && 
+			y >= 0 && 
+			x < this.width && 
+			y < this.height 
+		) this.grid[x + y*this.width] = v
+	}
+	Display.prototype.circle = function(x0, y0, radius, v,  fill)
+	{	
+		x |= 0
+		y |= 0
+		radius |= 0
+		v = v || 1
+		var x = radius-1
+		var y = 0
+		var dx = 1
+		var dy = 1
+		var err = dx - (radius << 1)
+		
+		
+		while (x >= y)
+		{
+			
+			if(fill){
+				this.line( x0 - x, y0 + y, x0 + x, y0 + y , v)
+				this.line( x0 - x, y0 - y, x0 + x, y0 - y , v)
+				this.line( x0 - y, y0 - x, x0 + y, y0 - x , v)
+				this.line( x0 - y, y0 + x, x0 + y, y0 + x , v)
+			}
+			else
+			{
+				this.pixel( x0 + x, y0 - y, v)
+				this.pixel( x0 - x, y0 - y, v)
+				this.pixel( x0 + x, y0 + y, v)
+				this.pixel( x0 - x, y0 + y, v)
+				this.pixel( x0 - y, y0 + x, v)
+				this.pixel( x0 + y, y0 + x, v)
+				this.pixel( x0 - y, y0 - x, v)
+				this.pixel( x0 + y, y0 - x, v)
+			}
+			
+			
+			if (err < 0)
+			{
+				y += 1
+				err += dy
+				dy += 2
+			}
+			if (err >= 0)
+			{
+				x -= 1
+				dx += 2
+				err += dx - (radius << 1)
+			}
+		}
+	}
+	Display.prototype.line = function(x0, y0, x1, y1, v) {
+	
+		x0 |= 0
+		y0 |= 0
+		x1 |= 0
+		y1 |= 0
+		v = v || 1
+		var dx = Math.abs(x1 - x0), 
+		  sx = x0 < x1 ? 1 : -1;
+		  
+		var dy = Math.abs(y1 - y0), 
+		  sy = y0 < y1 ? 1 : -1;
+		  
+		var err = (dx>dy ? dx : -dy)/2;
+
+		while (true) {
+
+			if(x0 >= 0 && y0 >= 0 && x0 < this.width && y0 < this.height ) this.grid[x0 + y0 * this.width] = v
+
+			if (x0 === x1 && y0 === y1) break;
+
+			var e2 = err;
+
+			if (e2 > -dx) { err -= dy; x0 += sx; }
+
+			if (e2 < dy) { err += dx; y0 += sy; }
+		}
+	  
+	}
+	Display.prototype.polygon = function( poly , v){
+		
+		for( var i=0, l = poly.length; i<l; i++){
+			
+			var p1x = poly[i][0] | 0
+			var p1y = poly[i][1] | 0
+			var p2x = poly[(i + 1) % l][0] | 0
+			var p2y = poly[(i + 1) % l][1] | 0
+			
+			 this.line(p1x, p1y, p2x, p2y, v)
+		}
+	}
+	Display.prototype.fill = function( x0, y0, t, v ){
+		
+		x0 |= 0
+		y0 |= 0
+		v = v || 1
+		t = t || 0
+		var height = this.height
+		var width  = this.width
+		var grid   = this.grid
+		
+		var pixelStack = [ [ x0, y0] ]
+		
+		
+		while(pixelStack.length){
+			
+		  var newPos, x, y, reachLeft, reachRight
+		  
+		  newPos = pixelStack.pop()
+		  
+		  x = newPos[0]
+		  y = newPos[1]
+		 
+			
+		  while(y >= 0 && grid[x+y*width] === t ) { y-- }
+		
+		  
+		  reachLeft = false
+		  reachRight = false
+		 
+		  while( y++ < height && grid[x+y*width] === t ){
+			  
+				
+				if(x >= 0 &&
+				   y >= 0 && 
+				   x < this.width && 
+				   y < this.height 
+				) grid[x + y*width] = v
+					
+					
+					
+					if(x > 0)
+					{
+					  if( grid[(x-1)+y*width] === t)
+					  {
+						if(!reachLeft){
+						  pixelStack.push([x - 1, y])
+						  reachLeft = true
+						}
+					  }
+					  else if(reachLeft)
+					  {
+						reachLeft = false
+					  }
+					}
+					
+					if(x < width-1)
+					{
+					  if( grid[(x+1)+y*width] === t)
+					  {
+						if(!reachRight)
+						{
+						  pixelStack.push( [x + 1, y] )
+						  reachRight = true
+						}
+					  }
+					  else if( reachRight )
+					  {
+						reachRight = false
+					  }
+					}
+							
+			
+		  }//while down ends
+		  
+		 
+		}//while stack ends
+
+	}
+	Display.prototype.spline = function getSplinePoint( points, v ){
+		
+		
+		var l = points.length
+		
+		for(var n =0; n <  points.length; n += 0.03){	
+			
+				var p0, p1, p2, p3, t=n, i = n|0
+				
+			
+				p1 = i
+				p2 = (p1 + 1) % l
+				p3 = (p2 + 1) % l
+				p0 = p1 >= 1 ? p1 - 1 : l - 1
+				
+
+				t = t - i
+
+				var tt = t * t
+				var ttt = tt * t
+
+				var q1 = -ttt + 2 *tt - t
+				var q2 = 3 * ttt - 5 * tt + 2
+				var q3 = -3 * ttt + 4 * tt + t
+				var q4 = ttt - tt
+
+				var x = 0.5 * ( points[p0][0] * q1 + points[p1][0] * q2 + points[p2][0] * q3 + points[p3][0] * q4) | 0
+				var y = 0.5 * ( points[p0][1] * q1 + points[p1][1] * q2 + points[p2][1] * q3 + points[p3][1] * q4) | 0
+				
+				
+				this.pixel( x, y, v )
+				
+		}
+	}
+	Display.prototype.drawColor = function( ctx, size ){
+		
+		var w = this.width
+		var g = this.grid
+		var colors=['black','orange','green','red','lime','deeppink','olive','dodgerblue','ivory']
+		
+		
+		for(var y = this.height - 1; y >= 0; --y){
+			for(var x = w - 1; x >= 0; --x){
+				var i = ( x + y*w)
+				
+				if(g[i]){
+					ctx.fillStyle = colors[g[i]-1]
+					//ctx.beginPath()
+					ctx.fillRect(  x * size, y * size, size,size)
+					//ctx.fill()
+				}
+			}
+		}
+		
+		
+	}
+	Display.prototype.draw = function( ctx, size, color ){
+		
+		var w = this.width
+		var g = this.grid
+		ctx.fillStyle = color || '#000000'
+		
+		ctx.beginPath()
+		for(var y = this.height - 1; y >= 0; --y){
+			for(var x = w - 1; x >= 0; --x){
+				var i = ( x + y*w)
+				
+				if(g[i]){
+					
+					ctx.rect(  x * size, y * size, size,size)
+					
+				}
+			}
+		}
+		ctx.fill()
+		
+	}
+	
+	var size = 10
+	var rows = Math.ceil( height / size )
+	var columns = Math.ceil( width / size )
+	var display = new Display( columns, rows )
+	var spline = createPolygon( 25,25, 8, 8, 0)
+	var line = createPolygon( 25,25, 2, 17, 0)
+	var simplex = new SimplexNoise()
+	
+	
+	requestAnimationFrame( loop )
+	
+	var radius = 25
+	var angle =0
+	var scale = 1
+	
+	function draw( delta ){
+		
+	
+		angle += 0.01
+		scale = 1 + Math.sin( angle )*0.1
+	
+		
+		var m = matrix( 25,25,0,0,scale,scale,angle)
+	
+		var m3 = matrix( 25,25, 0, 0, 1, 1, -angle )
+		
+		
+		var l1 = applyMatrix( line[0], m3)
+		var l2 = applyMatrix( line[1], m3)
+		
+		var la = Math.atan2( l2[1] - l1[1],l2[0] - l1[0])
+		
+		var xx = Math.cos(la)
+		var yy = Math.sin(la)
+	
+		
+		
+		var spline2 = []
+		
+		for(var i=0;i<spline.length;i++){
+			
+			var dx = 25 - spline[i][0]
+			var dy = 25 - spline[i][1]
+			
+			var noise = simplex.noise3d( dx*0.05 , dy*0.05, angle*0.3 )*5
+			
+			spline2.push( applyMatrix([ 25 + dx + noise, 25 + dy+noise], m ))
+		}
+		
+		
+		display.clear()
+		display.circle( 25,25, radius , 2)
+		display.spline( spline2, 2 )
+		display.line( l1[0],l1[1],l2[0],l2[1],2)
+		display.fill( 25 - yy*22,25 + xx*22, 0, 4)
+		display.fill( 25 + yy*2,25 - xx*2, 0, 3)
+		display.drawColor( ctx, size, 'darkcyan' )
+	
+		
+	}
+	var last = 0
+	function loop(t){
+		
+		var delta = t - last
+		
+		last = t
+		
+		if(delta > 20) delta = 20
+		
+		ctx.clearRect(0,0,width,height)
+		
+		draw(delta)
+		
+		requestAnimationFrame(loop)
+	}
+	function randomGrid( size ){
+		
+		var grid = new Array(size) 
+		
+		for(var i=0;i < grid.length; i++){
+			
+			grid[i] = Math.random() < 0.7 ? 0 : 1
+		}
+		
+		return grid
+	}
+	function wrapAngle(a){
+		
+		if(a > Math.PI)
+			a -= Math.PI*2
+		else if( a < -Math.PI)
+			a += Math.PI*2
+			
+		return a
+	}
+	function randomRGB(){
+		
+		var r = Math.random() * 255 | 0
+		var g = Math.random() * 255 | 0
+		var b = Math.random() * 255 | 0
+		
+		return 'rgb('+r+','+g+','+b+')'
+		
+	}
+	function createPolygon( x, y, n,radius, f){
+		f = typeof f === 'undefined' ? 1 : f
+		var points = []
+		var step = Math.PI * 2 / n
+		var h_radius = radius/2
+		for(var i = 0; i< n;i++){
+			
+			var a = i*step
+			var rand =  h_radius - Math.random()*radius*f
+			
+			points.push( [ x + Math.cos(a) * (radius + rand ) , y + Math.sin(a) * (radius + rand) ] )
+		}
+		
+		return points
+	}
+	function matrix(cx,cy,tx,ty,sx,sy,a){
+		var sin = Math.sin(a);
+		var cos = Math.cos(a);
+		var m = [ sx*cos,
+			 sy*sin, 
+			-sx* sin, 
+			 sy*cos, 
+			-cx * cos*sx + cy * sin*sx + cx +tx, 
+			-cx * sin*sy - cy * cos*sy + cy+ty];
+			
+		return m;
+	}
+	function applyMatrix(p,m) {
+
+		return  [ p[0] * m[0] + p[1] * m[2] + m[4],
+				  p[0] * m[1] + p[1] * m[3] + m[5] ];
+	}
+	</script>
+	</body>
+</html>
