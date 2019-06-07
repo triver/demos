@@ -1,0 +1,383 @@
+<DOCTYPE html>
+<html lang="en" >
+<head>
+	<meta charset="utf-8">
+	<title>Projectile Motion</title>
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+	<style>
+		html,body{
+			margin:0;
+			padding:0;
+			width: 100%;
+			height: 100%;
+			overflow: hidden;
+		}
+		body{ 
+			background: #ABB5BE;
+			color: #8b8b8b;
+			font-family: Arial, Helvetica;
+		}
+		#canvas{
+			position: absolute;
+			left:50%;
+			right:0;
+			top:50%;
+			bottom:0;
+			transform: translate(-50%,-50%);
+			display: block;
+			max-width: 100%;
+			max-height: 100%;
+			border: 1px solid black
+			box-sizing: border-box;
+		}
+	
+		#controls{
+			position: absolute;
+			right: 10px;
+			top: 10px;
+			
+		}
+		#controls *{
+			user-select: none;
+		}	
+		input[type=range]{
+			display: inline-block;
+			vertical-align: middle;
+			width: 200px;
+			margin: 5px 5px;
+		}
+		.hide{
+			display: none;
+		}
+		.label{
+			display: inline-block;
+			vertical-align:middle;
+			color: black;
+		}
+	</style>
+</head>
+<body>
+	 
+	<canvas id="canvas" width="600" height="450"></canvas>
+	<div id="controls">
+		<p><span class="label">angle</span>
+	<input id="aSlider" type="range" min="0.001" max="89.999" val="25" step="0.001" onInput="updateCannon();" />
+	</p>
+	<p><span class="label">velocity</span>
+	<input id="vSlider" type="range" min="2" max="20" val="20" step="0.01" onInput="updateCannon();" />
+	</p>
+	<p><span class="label">height</span>
+	<input id="hSlider" type="range" min="2" max="25" val="10" step="0.01" onInput="updateCannon();" />
+	</p>
+	<p><span class="label">click stage to fire !</span></p>
+	</div>
+
+	<script>
+		
+		var aSlider = document.getElementById('aSlider')
+		var vSlider = document.getElementById('vSlider')
+		var hSlider = document.getElementById('hSlider')
+		
+		
+		var canvas = document.getElementById('canvas')
+		var ctx = canvas.getContext('2d')
+		var width = canvas.width = 600
+		var height = canvas.height = 550
+		
+		canvas.width = width;
+		canvas.height = height;
+		
+		ctx.font = '16px Arial'
+		ctx.lineWidth = 2
+		
+		var scale = 10
+		
+		aSlider.value = 25
+		vSlider.value = 20
+		hSlider.value=10
+		
+		var cannon = {
+			x: 3,
+			y: 10,
+			angle: rad(25),
+			velocity: 20,
+			bx:  Math.cos( rad(25) )*20,
+			by:  Math.sin( rad(25) )*20
+		}
+		var target = { 
+			x:0,
+			y:0	
+		}
+		var balls = []
+		
+		function Ball(x,y,v,a, r){
+			
+			this.x0=x
+			this.y0= y
+			this.time=0
+			this.x = x
+			this.y = y
+			this.v = v
+			this.vx = v * Math.cos(a)
+			this.vy = v * Math.sin(a)
+			this.radius = r || 6
+			
+			this.r = getRange( v, a, y )
+			this.t = getTime(v, a,y)
+			this.rmax = getMaxRange(v,y)
+			
+			
+			console.log( 'range: '+this.r,'rangeM: '+this.rmax,'time: '+this.t)
+			
+		}
+		Ball.prototype.update = function(d){
+			
+			var t = this.time/1000
+			
+			this.x = this.x0 + this.vx * t
+			this.y = (-4.9 * Math.pow( t, 2) + this.vy * t + this.y0 ) 
+			
+			this.time += d
+		}
+		function addBall(s){
+			
+			balls.push( new Ball( 
+				cannon.x + cannon.bx / s, 
+				cannon.y + cannon.by / s, 
+				cannon.velocity, 
+				cannon.angle ) )
+			
+		}
+		
+		function getRange(v,a, y){
+			
+			var g= 9.81
+			var sinA = Math.sin(a)
+			var cosA = Math.cos(a)
+			
+			return (v*cosA) * ( ( v*sinA + Math.sqrt(v*v*sinA*sinA + 2*g*y) ) / g ) 
+			
+		}
+		function getTime(v,a,y){
+			
+			var g = 9.81
+			var sinA = Math.sin(a)
+			var b = v*sinA
+			if(y)
+				return (b + Math.sqrt( b*b + 2*g*y) ) / g
+			else
+				return (2*b) / g
+		}
+		
+		function getMaxRange(v,y){
+			
+			var L = Math.pow(v,2) / 9.81
+			
+			
+			if(y)
+				return (v/9.81) * Math.sqrt((v*v) + 2*9.81*y) 
+			else
+				return L
+		}
+	
+		function getAngle(v,x, y){
+			
+			var g = 9.81
+			var phi = Math.atan( x / y )
+			var xx = x*x
+			
+			var top = ( (g * xx) / (v*v) ) - y
+			var bottom = Math.sqrt( y*y + xx)
+			
+			var a =  ( (Math.acos(top/-bottom) + phi) / 2 ) - Math.PI/2
+			
+			if(a < 0 )
+				return (Math.acos(top/bottom) + phi) / 2
+			else
+				return a
+		}
+		function getMaxAngle(v,y){
+			
+			return Math.atan( v / Math.sqrt( v*v + 2*9.81*y) )
+		}
+		function getAngleXY(v,x,y){
+			var g = 9.81
+			var a = Math.atan2( ( v*v - Math.sqrt( v*v*v*v - g*( g*(x*x) + 2*y*(v*v)))) , g*x)
+			
+			if( a > 0) return a
+			
+			return Math.atan2( ( v*v + Math.sqrt( v*v*v*v - g*( g*(x*x) + 2*y*(v*v)))) , g*x)
+			
+		}
+		function safe(v,x){
+			var g=9.81
+			
+			return ((v*v)/(2*g)) - ( g / (2* v*v) )*x*x
+		}
+		function updateCannon(){
+			
+			cannon.angle = rad(+aSlider.value )
+			cannon.velocity = +vSlider.value
+			cannon.y = +hSlider.value
+			cannon.bx =  Math.cos(cannon.angle)*20
+			cannon.by =  Math.sin(cannon.angle)*20
+			
+			
+		}
+		function createTarget(){
+			
+			var maxx = getMaxRange(cannon.velocity, cannon.y + cannon.by / scale) - 10
+			//var maxy = (cannon.velocity*cannon.velocity) / ( 2 * 9.81 )
+			var x = Math.random()*maxx
+			
+			var maxy = safe(cannon.velocity,x)
+			
+			console.log( maxx,maxy)
+			
+			target.x = x
+			target.y = Math.random()*maxy
+			
+			 console.log( target.x,target.y)
+		}
+	
+		function rad(deg){
+			return deg*Math.PI/180
+		}
+		function deg(rad){
+			return rad*180/Math.PI
+		}
+		
+		function drawPath(cannon){
+			
+			var startX = cannon.x + cannon.bx / scale
+			var startY = cannon.y + cannon.by / scale
+			
+			var vx = cannon.velocity * Math.cos( cannon.angle )
+			var vy = cannon.velocity * Math.sin( cannon.angle )
+			
+			var tmax = getTime(cannon.velocity, cannon.angle, cannon.y + cannon.by / scale)
+			
+			ctx.beginPath()
+			ctx.moveTo( startX*scale,height - startY*scale)
+			
+			for(var t=0; t <= tmax + 0.2; t += 0.2){
+				
+				var x =  startX + vx * t
+				var y = (-4.9 * Math.pow( t, 2) + vy * t + startY )
+				
+				ctx.lineTo(x*scale,height-y*scale) 
+			}
+			ctx.strokeStyle = 'red'
+			ctx.stroke()	
+		}
+		function drawSafe(){
+			
+			var maxx = getMaxRange( cannon.velocity, cannon.y + cannon.by/scale )
+			ctx.beginPath()
+			
+			for( var x= 0; x <= maxx + 1; x++ ){
+				
+				var s = safe(cannon.velocity,x)
+				var y = height - (cannon.y + cannon.by/scale + s )*scale
+				var xx = cannon.x + cannon.bx/scale + x
+				if(x===0)ctx.moveTo(xx*scale,y)
+				else ctx.lineTo(xx*scale,y) 
+			}
+			ctx.lineTo((cannon.x + cannon.bx/scale)*scale,height)
+			ctx.fillStyle = 'rgba( 255, 255, 255, 0.8)'
+			ctx.fill()	
+		}
+		function drawMaxPath(cannon){
+			
+			
+			var startX = cannon.x + cannon.bx / scale
+			var startY = cannon.y + cannon.by / scale
+			var angle = getMaxAngle( cannon.velocity, startY )
+			var vx = cannon.velocity * Math.cos( angle )
+			var vy = cannon.velocity * Math.sin( angle )
+			
+			var tmax = getTime(cannon.velocity, angle, cannon.y + cannon.by / scale)
+			
+			ctx.beginPath()
+			ctx.moveTo( startX*scale,height - startY*scale)
+			
+			for(var t=0; t <= tmax + 0.2; t += 0.2){
+				
+				var x =  startX + vx * t
+				var y = (-4.9 * Math.pow( t, 2) + vy * t + startY )
+				
+				ctx.lineTo(x*scale,height-y*scale) 
+			}
+			ctx.strokeStyle = 'dodgerblue'
+			ctx.stroke()	
+		}
+		var start = 0
+		
+		function draw(t){
+			
+			 if (!start)  start = t
+			 var d = t - start
+			 start = t
+  
+			ctx.clearRect(0,0,width,height)
+			
+			
+		
+			drawSafe()
+			drawMaxPath(cannon)
+			drawPath(cannon)
+			
+			
+			balls.forEach(function(ball, i){
+				
+				ctx.beginPath()
+				ctx.arc( ball.x * scale, height - ball.y*scale, ball.radius, 0, Math.PI*2 )
+				ctx.fillStyle = 'black'
+				ctx.fill()
+				
+				ball.update(d)
+				
+			})
+			var i = balls.length
+			
+			while(i--){
+				var ball = balls[i]
+				
+				if( ball.x > width || height - ball.y > height) balls.splice(i,1)
+			}
+		
+			ctx.save()
+			ctx.fillStyle = 'orange'
+			ctx.translate(cannon.x * scale, height - cannon.y * scale)
+			ctx.rotate( -cannon.angle )
+			ctx.fillRect(-20,-10,40,20)
+			ctx.restore()
+			
+			ctx.fillStyle = 'black'
+			var count = 0
+			
+			for(var i=cannon.x*scale + cannon.bx; i < width; i += scale*10){
+				ctx.beginPath()
+				ctx.arc( i, height - 1,2,0,Math.PI*2)
+				ctx.fill()
+				ctx.fillText(count++*10, i, height -10)
+			}
+			
+			ctx.fillStyle = 'black'
+			ctx.fillText('angle: '+ deg(cannon.angle).toFixed(2)+' deg', 5, 15)
+			ctx.fillText('velocity: '+cannon.velocity.toFixed(2)+' m/s', 5, 35)
+			ctx.fillText('height: '+cannon.y.toFixed(2)+' m', 5, 55)
+			ctx.fillText('max-angle: '+(deg(getMaxAngle( cannon.velocity, cannon.y + cannon.by/scale))).toFixed(2)+' deg', 5, 75)
+			ctx.fillText('max-range: '+(getMaxRange( cannon.velocity, cannon.y + cannon.by/scale)).toFixed(2)+' m', 5, 95)
+			ctx.fillText('range: '+(getRange( cannon.velocity, cannon.angle,cannon.y + cannon.by/scale)).toFixed(2)+' m', 5, 115)
+			requestAnimationFrame(draw)
+		}
+		canvas.addEventListener('click',function(){
+			addBall(scale)
+			start=0
+		},false)
+		requestAnimationFrame(draw)
+		
+	</script>
+</body>
+</html>
