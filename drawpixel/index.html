@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+	<meta charset="utf-8">
+	<title>Draw Pixel</title>
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+	<style>
+	html,body{
+			margin:0;
+			padding:0;
+			width: 100%;
+			height: 100%;
+			overflow: hidden;
+		}
+		body{ 
+			background:slategray;
+			color: #8b8b8b;
+			min-width: 320px;
+		}
+		#wrapper{
+			position: absolute;
+			left:50%;
+			right:0;
+			top:50%;
+			transform: translate(-50%,-50%);
+			width: 100%;
+			max-width: 600px;
+			margin: 0 auto;
+			overflow: hidden;
+			border: 2px solid black;
+			box-sizing: border-box;
+		}
+		#canvas{
+		
+			display: block;
+			max-width: 100%;
+			max-height: 100%;
+			margin: 0;
+			background-size: contain;
+			background-repeat: no-repeat;
+		}
+		
+		
+		#tools{
+			position: fixed;
+			left:0;
+			top:0;
+			width: 100%;
+			padding: 10px 0 5px 0;
+			
+			background: slategray;
+			text-align: center;
+		}
+		
+		span.icon-wrapper{
+			display: inline-block;
+			height:30px;
+			width: 30px;
+			background: transparent;
+			border: 2px solid #000;
+			overflow: hidden;
+			margin: 1px;
+			padding: 5px;
+			
+		}
+		span.icon{
+			display: block;
+			margin: 0 auto;
+			height: 30px;
+			width: 30px;
+			box-sizing: border-box;
+			border: 2px solid black;
+		}
+		span.icon-wrapper.active {
+			border: 2px solid cyan;
+		}
+		span.swatch {
+			
+			display: inline-block;
+			width: 20px;
+			height: 20px;
+			
+		}
+		#line{
+			background: black;
+			transform: skew( -30deg );
+			width: 15px;
+		}
+		#eraser{
+			background: transparent;
+			transform: skew( -30deg );
+			width: 15px;
+		}
+		#circle{
+			background: transparent;
+			border-radius: 20px;
+			border-width: 5px;
+		}
+		#fill{
+			border-top-left-radius: 20px;
+			border-bottom-left-radius: 20px;
+			border-bottom-right-radius: 20px;
+		}
+		#swatch-icon{
+			font-size: 0;
+			line-height:0;
+			width: 60px;
+			height: 40px;
+			padding:0;
+		}
+		#trace{
+			position: fixed;
+			left:5px;
+			bottom: 5px;
+			display: inline-block;
+			color: black;
+			text-align: center;
+			width:60px;
+			line-height: 20px;
+			height: 20px;
+			vertical-align: top;
+			background: slategray;
+			font-size: 16px;
+		}
+	</style>
+	<body>
+	<div id="wrapper">
+		<canvas id="canvas"></canvas>
+		
+		
+	</div>
+	
+	<div id="tools">
+		<span class="icon-wrapper active" id="line-icon" onclick="setTool(this, 1);">
+			<span class="icon" id="line"  ></span>
+		</span>
+		<span class="icon-wrapper" id="eraser-icon" onclick="setTool(this, 0);">
+			<span class="icon" id="eraser" ></span>
+		</span>
+		<span class="icon-wrapper" id="circle-icon" onclick="setTool(this, 2);">
+			<span class="icon" id="circle" ></span>
+		</span>
+		<span class="icon-wrapper" id="fill-icon" onclick="setTool(this, 3);">
+			<span class="icon" id="fill" style="background: orange;"></span>
+		</span>
+		
+		<span class="icon-wrapper" id="swatch-icon" onclick="setFillColor(event);">
+			<span class="swatch" id="orange" style="background: orange;" data-index="2" ></span>
+			<span class="swatch" id="deeppink" style="background: deeppink;" data-index="3" ></span>
+			<span class="swatch" id="dodgerblue" style="background: dodgerblue;" data-index="4" ></span>
+			<span class="swatch" id="red"style="background: red;" data-index="5" ></span>
+			<span class="swatch" id="green"style="background: green;" data-index="6" ></span>
+			<span class="swatch" id="cyan" style="background: cyan;" data-index="7" ></span>
+		</span>
+		
+		<span class="icon-wrapper" id="clear-icon" onclick="clearDisplay();">
+			<span class="icon" id="clear" ></span>
+		</span>
+		
+		<span class="icon-wrapper" id="trace"></span>
+	</div>
+	<script src="display.js?v=1"></script>
+	<script>
+		
+		
+	var colors =['black','orange','deeppink','dodgerblue','red','green','cyan']
+	var lineIcon = document.getElementById('line-icon')
+	var eraserIcon = document.getElementById('eraser-icon')
+	var circleIcon = document.getElementById('circle-icon')
+	var fillIcon = document.getElementById('fill-icon')
+	var fill = document.getElementById('fill')
+	
+	
+	var trace = document.getElementById('trace')
+	var width = 640
+	var height = 640
+	var cx =width / 2 | 0
+	var cy = height / 2 | 0
+
+	var canvas = document.getElementById('canvas')
+	var ctx = canvas.getContext('2d')
+	
+	canvas.width = width
+	canvas.height = height
+	
+	var tool = 1
+	
+	var fillColorIndex = 2
+	function setTool(el,v){
+		
+		tool = +v
+		
+		lineIcon.classList.remove('active')
+		eraserIcon.classList.remove('active')
+		circleIcon.classList.remove('active')
+		fillIcon.classList.remove('active')
+		
+		el.classList.add('active')
+		
+	}
+	function setFillColor(e){
+		
+		if(e.target !== e.currentTarget){
+			fillColor = e.target.id
+			fillColorIndex = e.target.dataset.index
+			fill.style.background = e.target.id
+			
+		}
+	}
+	var mouse = {
+		
+		x: 0,
+		y: 0,
+		down:false,
+		startX:null,
+		startY:null,
+		ox:0,
+		oy:0,
+		dx:0,
+		dy:0,
+		update: function(e){
+			
+			var rect = e.target.getBoundingClientRect();
+		
+			var scale = width / rect.width
+
+			var x = (e.clientX - rect.left)*scale
+			var y = (e.clientY - rect.top)*scale
+			
+			this.x = x
+			this.y = y
+		},
+		updateTouch: function(e){
+			
+			var o = e.touches[0]
+			var rect = e.target.getBoundingClientRect();
+		
+			var scale = width / rect.width
+
+			var x = (o.clientX - rect.left)*scale
+			var y = (o.clientY - rect.top)*scale
+			
+			this.x = x
+			this.y = y
+		}
+	}
+	
+	
+	/*========================================*/
+	
+	var size = 20
+	var rows = Math.ceil( height / size )
+	var columns = Math.ceil( width / size )
+	var display = new Display( columns, rows )
+	var layer0 = new Display( columns, rows )
+	
+	/*
+	drawGrid(ctx,width,height,size)
+	canvas.style.backgroundImage = 'url('+canvas.toDataURL('image/png')+')'
+	ctx.clearRect(0,0,width,height)
+	*/
+	draw()
+	
+	function draw( delta ){
+		
+		ctx.clearRect(0,0,width,height)
+		drawGrid(ctx,width,height,size)
+		display.drawColor( ctx, size, colors )
+		
+	}
+	function clearDisplay(){
+		display.clear()
+		draw()
+	}
+	function drawGrid( ctx, width, height, size){
+		
+		ctx.beginPath()
+		
+		for(var x =size; x<width; x += size){
+			
+			ctx.moveTo( x, 0)
+			ctx.lineTo( x, height)	
+		}
+		for(var y=size; y<height; y += size){
+			ctx.moveTo( 0, y)
+			ctx.lineTo( width, y)	
+		}
+		ctx.stroke()
+	}
+	/*====================== controls ===========================*/
+	function displayCoords(x, y , size ){
+		return { x: x/size | 0, y: y/size | 0 }
+	}
+
+	function onMouseDown(e){
+		
+		mouse.update(e)
+		mouse.down = true
+		mouse.startX = mouse.x
+		mouse.startY = mouse.y
+		
+		var coords = displayCoords( mouse.x, mouse.y, size)
+	
+		if(tool === 1){
+			
+			layer0.pixel( coords.x, coords.y )
+			layer0.draw( ctx, size)
+		}
+		else if( tool === 0 ){
+			
+			display.clearPixel( coords.x, coords.y )
+			draw()
+		}
+		else if( tool === 3 ){
+			
+			if(display.getPixel( coords.x, coords.y ) === 0){
+				
+				display.fill( coords.x, coords.y, 0, fillColorIndex )
+				draw()
+				
+			}
+		}
+			
+			
+		
+		
+	}
+	function onMouseUp(e){
+		
+		display.merge( layer0 )
+		layer0.clear()
+		draw()
+		
+		mouse.down = false
+		mouse.startX = null
+		mouse.startY = null
+	
+		
+	}
+	function onMouseLeave(e){
+		
+		trace.textContent = ''
+	
+		
+	}
+	function onMouseMove(e){
+		
+		
+		
+		mouse.update(e)
+		var coords = displayCoords( mouse.x, mouse.y, size)
+		trace.textContent = ( coords.x)+' | '+( coords.y)
+		
+		
+		if(!mouse.down) return
+		var start = displayCoords( mouse.startX, mouse.startY, size)
+		
+			
+		if(tool === 1 && (mouse.startX !== null) && (mouse.startY !== null)){
+			
+			
+			
+			layer0.clear()
+			layer0.line( start.x, start.y, coords.x, coords.y )
+			draw()
+			layer0.draw(ctx,size)  
+		}
+		else if( tool === 0){
+			
+			display.clearPixel( coords.x, coords.y )
+			draw()
+		}
+		else if( tool === 2){
+			
+			var dx =(coords.x - start.x)
+			var dy = (coords.y -start.y)
+			
+			var d = Math.round( Math.sqrt( dx*dx + dy*dy) )
+			
+			layer0.clear()
+			layer0.circle(  start.x, start.y, d )
+			draw()
+			layer0.draw(ctx,size) 
+		}
+		
+		
+		
+	}
+	canvas.addEventListener('mousedown',onMouseDown,false)
+	canvas.addEventListener('mouseup',onMouseUp,false)
+	canvas.addEventListener('mousemove',onMouseMove,false)
+	canvas.addEventListener('mouseleave',onMouseLeave,false)
+	
+	//touch
+	function onTouchStart(e){
+		
+	
+		if( e.touches.length !== 1 ) return
+		
+		
+		mouse.updateTouch(e)
+		mouse.down = true
+		mouse.startX = mouse.x
+		mouse.startY = mouse.y
+		
+		var coords = displayCoords( mouse.x, mouse.y, size)
+	
+		if(tool === 1){
+			
+			layer0.pixel( coords.x, coords.y )
+			layer0.draw( ctx, size)
+		}
+		else if( tool === 0 ){
+			
+			display.clearPixel( coords.x, coords.y )
+			draw()
+		}
+		else if( tool === 3 ){
+			
+			if(display.getPixel( coords.x, coords.y ) === 0){
+				
+				display.fill( coords.x, coords.y, 0, fillColorIndex )
+				draw()
+				
+			}
+		}
+		
+		
+	}
+	function onTouchEnd( e ){
+		
+		e.preventDefault()
+	
+		display.merge( layer0 )
+		layer0.clear()
+		draw()
+		
+		mouse.down = false
+		mouse.startX = null
+		mouse.startY = null
+		
+	}
+	function onTouchMove( e ){
+		
+		e.preventDefault()
+		
+		mouse.updateTouch(e)
+		
+		var coords = displayCoords( mouse.x, mouse.y, size)
+		trace.textContent = ( coords.x)+' | '+( coords.y)
+		
+		
+		if(!mouse.down) return
+	
+		var start = displayCoords( mouse.startX, mouse.startY, size)
+		
+			
+		if(tool === 1 && (mouse.startX !== null) && (mouse.startY !== null)){
+			
+			layer0.clear()
+			layer0.line( start.x, start.y, coords.x, coords.y )
+			draw()
+			layer0.draw( ctx, size )  
+		}
+		else if( tool === 0){
+			
+			display.clearPixel( coords.x, coords.y )
+			draw()
+		}
+		else if( tool === 2){
+			
+			var dx =(coords.x - start.x)
+			var dy = (coords.y -start.y)
+			
+			var d = Math.round( Math.sqrt( dx*dx + dy*dy) )
+			
+			layer0.clear()
+			layer0.circle(  start.x, start.y, d )
+			draw()
+			layer0.draw(ctx,size) 
+		}
+		
+	
+	}
+	canvas.addEventListener('touchstart', onTouchStart, false)
+	canvas.addEventListener('touchmove', onTouchMove, false)
+	canvas.addEventListener('touchcancel', onTouchEnd, false)
+	canvas.addEventListener('touchend', onTouchEnd, false)
+	canvas.addEventListener('click', function(e){ e.preventDefault(); return false; }, false)
+	</script>
+	</body>
+</html>
