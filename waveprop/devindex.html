@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+	<meta charset="utf-8">
+	<title>Draw Pixel</title>
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+	<style>
+	html,body{
+			margin:0;
+			padding:0;
+			width: 100%;
+			height: 100%;
+			overflow: hidden;
+		}
+		body{ 
+			background:slategray;
+			color: #8b8b8b;
+			min-width: 320px;
+		}
+		#wrapper{
+			position: absolute;
+			left:50%;
+			right:0;
+			top:50%;
+			transform: translate(-50%,-50%);
+			width: 100%;
+			max-width: 600px;
+			margin: 0 auto;
+			overflow: hidden;
+			border: 2px solid black;
+			box-sizing: border-box;
+		}
+		#canvas{
+		
+			display: block;
+			max-width: 100%;
+			max-height: 100%;
+			margin: 0;
+			background-size: contain;
+			background-repeat: no-repeat;
+		}
+		
+		
+		#tools{
+			position: fixed;
+			left:0;
+			top:0;
+			width: 100%;
+			padding: 10px 0 5px 0;
+			
+			background: slategray;
+			text-align: center;
+		}
+		
+		span.icon-wrapper{
+			display: inline-block;
+			height:30px;
+			width: 30px;
+			background: transparent;
+			border: 2px solid #000;
+			overflow: hidden;
+			margin: 1px;
+			padding: 5px;
+			
+		}
+		span.icon{
+			display: block;
+			margin: 0 auto;
+			height: 30px;
+			width: 30px;
+			box-sizing: border-box;
+			border: 2px solid black;
+		}
+		span.icon-wrapper.active {
+			border: 2px solid cyan;
+		}
+		span.swatch {
+			
+			display: inline-block;
+			width: 20px;
+			height: 20px;
+			
+		}
+		#line{
+			background: black;
+			transform: skew( -30deg );
+			width: 15px;
+		}
+		#eraser{
+			background: transparent;
+			transform: skew( -30deg );
+			width: 15px;
+		}
+		#circle{
+			background: transparent;
+			border-radius: 20px;
+			border-width: 5px;
+		}
+		#fill{
+			border-top-left-radius: 20px;
+			border-bottom-left-radius: 20px;
+			border-bottom-right-radius: 20px;
+		}
+		#swatch-icon{
+			font-size: 0;
+			line-height:0;
+			width: 60px;
+			height: 40px;
+			padding:0;
+		}
+		#trace{
+			position: fixed;
+			left:5px;
+			bottom: 5px;
+			display: inline-block;
+			color: black;
+			text-align: center;
+			width:60px;
+			line-height: 20px;
+			height: 20px;
+			vertical-align: top;
+			background: slategray;
+			font-size: 16px;
+		}
+	</style>
+	<body>
+	<div id="wrapper">
+		<canvas id="canvas"></canvas>
+		
+		
+	</div>
+	
+	<div id="tools">
+		<span class="icon-wrapper active" id="line-icon" onclick="setTool(this, 1);">
+			<span class="icon" id="line"  ></span>
+		</span>
+		<span class="icon-wrapper" id="eraser-icon" onclick="setTool(this, 0);">
+			<span class="icon" id="eraser" ></span>
+		</span>
+		<span class="icon-wrapper" id="wave-icon" onclick="populateWave();">
+			<span class="icon" id="populate" ></span>
+		</span>
+		<span class="icon-wrapper" id="log-icon" onclick="logGrid();">
+			<span class="icon" id="log" ></span>
+		</span>
+		<span class="icon-wrapper" id="trace"></span>
+	</div>
+	<script src="display.js"></script>
+	<script>
+		
+	var stage = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,-1,0,0,0,0,0,-1,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,-1,0,0,0,0,0,-1,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,-1,0,0,0,0,0,-1,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,-1,0,0,0,0,0,-1,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,-1,0,0,0,0,0,-1,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
+		
+		
+	var colors =['lime','cyan','red','blue','yellow','ivory']
+	var lineIcon = document.getElementById('line-icon')
+	var eraserIcon = document.getElementById('eraser-icon')
+	
+	
+	
+	var trace = document.getElementById('trace')
+	var width = 640
+	var height = 640
+	var cx =width / 2 | 0
+	var cy = height / 2 | 0
+
+	var canvas = document.getElementById('canvas')
+	var ctx = canvas.getContext('2d')
+	
+	canvas.width = width
+	canvas.height = height
+	
+	var tool = 1
+
+	var mouse = {
+		
+		x: 0,
+		y: 0,
+		down:false,
+		startX:null,
+		startY:null,
+		ox:0,
+		oy:0,
+		dx:0,
+		dy:0,
+		update: function(e){
+			
+			var rect = e.target.getBoundingClientRect();
+		
+			var scale = width / rect.width
+
+			var x = (e.clientX - rect.left)*scale
+			var y = (e.clientY - rect.top)*scale
+			
+			this.x = x
+			this.y = y
+		},
+		updateTouch: function(e){
+			
+			var o = e.touches[0]
+			var rect = e.target.getBoundingClientRect();
+		
+			var scale = width / rect.width
+
+			var x = (o.clientX - rect.left)*scale
+			var y = (o.clientY - rect.top)*scale
+			
+			this.x = x
+			this.y = y
+		}
+	}
+	
+	
+	/*========================================*/
+	
+	var size = 20
+	var rows = Math.ceil( height / size )
+	var columns = Math.ceil( width / size )
+	var display = new Display( columns, rows )
+	var layer0 = new Display( columns, rows )
+	
+	display.copyArray( stage )
+	draw()
+	
+	
+	//path planning
+	
+	
+	
+	
+	function populateWave(){
+		
+		var zombies =[]
+		
+		display.copyArray( stage )
+		draw()
+		
+		for(var i=0;i<colors.length;i++){
+			
+			var z = display.getRandomPixel(0)
+			
+			if(z) zombies.push(z)
+		}
+		
+		var center= display.getRandomPixel(0)
+		
+		populateField( display, center)
+		
+		draw()
+		
+		var hs = size/2
+		ctx.lineWidth=2
+		if(zombies.length){
+			
+			for(var i =0; i<zombies.length; i++){
+				
+				var path = findShortestPath(display, zombies[i], center)
+				
+				if(path){
+					
+					drawPath( ctx, path, size, colors[i] )
+					
+					drawCircle( ctx, path[0][0]*size + hs, path[0][1]*size + hs, 5, colors[i] )
+					
+				} else console.log( 'no path for this zombie' )
+			}
+			
+		} else console.log( 'no zombies' )
+		
+		
+		
+		drawCircle( ctx, center[0]*size + hs,center[1]*size + hs,20, 'darkorange')
+	}
+	function populateField(map, center){
+		
+		var nodes = []
+	
+		nodes.push([ center[0], center[1], 1])
+		
+		var check = 0
+		
+		while(nodes.length  && check++ < 3000){
+			
+			var list = []
+			
+			for(var i =0; i<nodes.length;i++){
+				
+				var node = nodes[i]
+				
+				var x = node[0]
+				var y = node[1]
+				var d = node[2]
+				
+				//set distance value
+				map.pixel( x, y, d )
+				
+				//check neighbours
+				
+				
+				//east
+				if( map.getPixel( x + 1, y ) === 0){
+					
+					list.push([ x + 1, y, d + 1])
+				}
+				//west
+				if( map.getPixel( x - 1, y ) === 0){
+					
+					list.push([ x - 1, y, d + 1])
+				}
+				//south
+				if( map.getPixel( x, y + 1 ) === 0){
+					
+					list.push([ x , y + 1, d + 1])
+				}
+				//north
+				if( map.getPixel( x, y - 1 ) === 0){
+					
+					list.push([ x , y - 1, d + 1])
+				}
+			}
+			
+			nodes = makeUnique( list )
+			
+		}
+	}
+	function makeUnique(a){
+		
+		var out =[]
+		var keys =[]
+		
+		for(var i=0; i<a.length; i++){
+			
+			var key = a[i][0]+''+a[i][1]+''+a[i][2]
+			
+			if(keys.indexOf(key) === -1){
+				
+				out.push(a[i])
+				keys.push( key )
+			}
+		}
+		return out
+	}
+	function findShortestPath(map, start, end){
+		
+		var m = [
+			-1,-1, 0,-1, 1,-1,
+			-1,0,        1,0,
+			-1,1,  0,1,  1,1
+		]
+		var path =[ [ start[0], start[1] ]  ]
+		
+		var posX = start[0]
+		var posY = start[1]
+		
+		while( !(posX == end[0] && posY == end[1]) ){
+			
+			var v = Infinity
+			var coords = null
+			
+			for( var i = 0; i < m.length;i += 2 ){
+				
+				var x = posX + m[i]
+				var y = posY + m[ i + 1 ]
+				var n = map.getPixel( x, y )
+			
+				if (n && n > -1 && n < v){ 
+					v = n
+					coords = [x,y]
+				}
+			}
+			if(!coords || v == Infinity){
+				path = false
+				 break
+			 }
+			
+			path.push( coords )
+			posX = coords[0]
+			posY = coords[1]
+			
+		}
+		
+		return path
+	}
+	function drawPath( ctx, path, size, color){
+		
+		var hs = size / 2
+		ctx.strokeStyle = color || '#000000'
+		
+		ctx.beginPath()
+		ctx.moveTo(path[0][0] * size + hs, path[0][1] * size + hs)
+		for(var i=1;i<path.length; i++){
+			ctx.lineTo(path[i][0] * size + hs, path[i][1] * size + hs)
+		}
+		ctx.stroke()
+		
+	}
+	function drawCircle( ctx, x,y,r,c){
+		ctx.beginPath()
+		ctx.arc(x,y,r,0,Math.PI*2)
+		ctx.fillStyle = c || '#000000'
+		ctx.fill()
+	}
+	function logGrid(){
+		console.log( JSON.stringify( display.grid ) )
+	}
+	function draw( delta ){
+		
+		ctx.clearRect(0,0,width,height)
+		drawGrid(ctx,width,height,size)
+		display.drawValues( ctx, size)
+		
+	}
+	function clearDisplay(){
+		display.clear()
+		draw()
+	}
+	function drawGrid( ctx, width, height, size){
+		
+		ctx.beginPath()
+		
+		for(var x =size; x<width; x += size){
+			
+			ctx.moveTo( x - 0.5, -0.5)
+			ctx.lineTo( x - 0.5, height-0.5)	
+		}
+		for(var y=size; y<height; y += size){
+			ctx.moveTo( -0.5, y - 0.5)
+			ctx.lineTo( width - 0.5, y - 0.5)	
+		}
+		ctx.lineWidth=1
+		ctx.strokeStyle ='#000';
+		ctx.stroke()
+	}
+	
+	/*====================== controls ===========================*/
+	function displayCoords(x, y , size ){
+		return { x: x/size | 0, y: y/size | 0 }
+	}
+
+	function onMouseDown(e){
+		
+		mouse.update(e)
+		mouse.down = true
+		mouse.startX = mouse.x
+		mouse.startY = mouse.y
+		
+		var coords = displayCoords( mouse.x, mouse.y, size)
+	
+		if(tool === 1){
+			
+			layer0.pixel( coords.x, coords.y, -1 )
+			layer0.draw( ctx, size)
+		}
+		else if( tool === 0 ){
+			
+			display.clearPixel( coords.x, coords.y )
+			draw()
+		}
+			
+		
+		
+	}
+	function onMouseUp(e){
+		
+		display.merge( layer0 )
+		layer0.clear()
+		draw()
+		
+		mouse.down = false
+		mouse.startX = null
+		mouse.startY = null
+	
+		
+	}
+	function onMouseLeave(e){
+		
+		trace.textContent = ''
+	
+		
+	}
+	function onMouseMove(e){
+		
+		
+		
+		mouse.update(e)
+		var coords = displayCoords( mouse.x, mouse.y, size)
+		trace.textContent = ( coords.x)+' | '+( coords.y)
+		
+		
+		if(!mouse.down) return
+		var start = displayCoords( mouse.startX, mouse.startY, size)
+		
+			
+		if(tool === 1 && (mouse.startX !== null) && (mouse.startY !== null)){
+			
+			
+			
+			layer0.clear()
+			layer0.line( start.x, start.y, coords.x, coords.y, -1 )
+			draw()
+			layer0.draw(ctx,size)  
+		}
+		else if( tool === 0){
+			
+			display.clearPixel( coords.x, coords.y )
+			draw()
+		}
+		
+		
+		
+		
+	}
+	canvas.addEventListener('mousedown',onMouseDown,false)
+	canvas.addEventListener('mouseup',onMouseUp,false)
+	canvas.addEventListener('mousemove',onMouseMove,false)
+	canvas.addEventListener('mouseleave',onMouseLeave,false)
+	
+	//touch
+	function onTouchStart(e){
+		
+	
+		if( e.touches.length !== 1 ) return
+		
+		
+		mouse.updateTouch(e)
+		mouse.down = true
+		mouse.startX = mouse.x
+		mouse.startY = mouse.y
+		
+		var coords = displayCoords( mouse.x, mouse.y, size)
+	
+		if(tool === 1){
+			
+			layer0.pixel( coords.x, coords.y )
+			layer0.draw( ctx, size)
+		}
+		else if( tool === 0 ){
+			
+			display.clearPixel( coords.x, coords.y )
+			draw()
+		}
+		
+		
+		
+	}
+	function onTouchEnd( e ){
+		
+		e.preventDefault()
+	
+		display.merge( layer0 )
+		layer0.clear()
+		draw()
+		
+		mouse.down = false
+		mouse.startX = null
+		mouse.startY = null
+		
+	}
+	function onTouchMove( e ){
+		
+		e.preventDefault()
+		
+		mouse.updateTouch(e)
+		
+		var coords = displayCoords( mouse.x, mouse.y, size)
+		trace.textContent = ( coords.x)+' | '+( coords.y)
+		
+		
+		if(!mouse.down) return
+	
+		var start = displayCoords( mouse.startX, mouse.startY, size)
+		
+			
+		if(tool === 1 && (mouse.startX !== null) && (mouse.startY !== null)){
+			
+			layer0.clear()
+			layer0.line( start.x, start.y, coords.x, coords.y )
+			draw()
+			layer0.draw( ctx, size )  
+		}
+		else if( tool === 0){
+			
+			display.clearPixel( coords.x, coords.y )
+			draw()
+		}
+		
+		
+	
+	}
+	canvas.addEventListener('touchstart', onTouchStart, false)
+	canvas.addEventListener('touchmove', onTouchMove, false)
+	canvas.addEventListener('touchcancel', onTouchEnd, false)
+	canvas.addEventListener('touchend', onTouchEnd, false)
+	canvas.addEventListener('click', function(e){ e.preventDefault(); return false; }, false)
+	</script>
+	</body>
+</html>

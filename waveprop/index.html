@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+	<meta charset="utf-8">
+	<title>Pathfinding Wave Propagation</title>
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+	<style>
+	html,body{
+			margin:0;
+			padding:0;
+			width: 100%;
+			height: 100%;
+			overflow: hidden;
+		}
+		body{ 
+			background:slategray;
+			color: #8b8b8b;
+			min-width: 320px;
+		}
+		#wrapper{
+			position: absolute;
+			left:50%;
+			right:0;
+			top:50%;
+			transform: translate(-50%,-50%);
+			width: 100%;
+			max-width: 600px;
+			margin: 0 auto;
+			overflow: hidden;
+			border: 2px solid black;
+			box-sizing: border-box;
+		}
+		#canvas{
+		
+			display: block;
+			max-width: 100%;
+			max-height: 100%;
+			margin: 0;
+			background-size: contain;
+			background-repeat: no-repeat;
+		}
+	
+	</style>
+	<body>
+	<div id="wrapper">
+		<canvas id="canvas"></canvas>
+	</div>
+	
+	<script src="display.js"></script>
+	<script>
+		
+	var stage = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,-1,0,0,0,0,0,-1,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,-1,0,0,0,0,0,-1,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,-1,0,0,0,0,0,-1,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,-1,0,0,0,0,0,-1,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,-1,0,0,0,0,0,-1,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,-1,-1,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,-1,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
+		
+		
+	var colors =['lime','cyan','red','blue','yellow','ivory']
+
+	
+	
+	var trace = document.getElementById('trace')
+	var width = 640
+	var height = 640
+	var cx = width / 2 | 0
+	var cy = height / 2 | 0
+
+	var canvas = document.getElementById('canvas')
+	var ctx = canvas.getContext('2d')
+	
+	canvas.width = width
+	canvas.height = height
+	
+
+	
+	/*========================================*/
+	
+	var size = 20
+	var rows = Math.ceil( height / size )
+	var columns = Math.ceil( width / size )
+	var display = new Display( columns, rows )
+	var layer0 = new Display( columns, rows )
+	
+	display.copyArray( stage )
+	draw()
+	
+	
+	//path planning
+	function createZombies(){
+		
+		var zombies =[]
+		
+		display.copyArray( stage )
+		draw()
+		
+		for(var i=0;i<colors.length;i++){
+			
+			var z = display.getRandomPixel(0)
+			
+			if(z) zombies.push(z)
+		}
+		
+		var center= display.getRandomPixel(0)
+		
+		populateField( display, center)
+		
+		draw()
+		
+		var hs = size/2
+		ctx.lineWidth=2
+		if(zombies.length){
+			
+			for(var i =0; i<zombies.length; i++){
+				
+				var path = findShortestPath(display, zombies[i], center)
+				
+				if(path){
+					
+					drawPath( ctx, path, size, colors[i] )
+					
+					drawCircle( ctx, path[0][0]*size + hs, path[0][1]*size + hs, 5, colors[i] )
+					
+				} else console.log( 'no path for this zombie' )
+			}
+			
+		} else console.log( 'no zombies' )
+		
+		
+		
+		drawCircle( ctx, center[0]*size + hs,center[1]*size + hs,20, 'darkorange')
+	}
+	function populateField(map, center){
+		
+		var nodes = []
+	
+		nodes.push([ center[0], center[1], 1])
+		
+		var check = 0
+		
+		while(nodes.length  && check++ < 3000){
+			
+			var list = []
+			
+			for(var i =0; i<nodes.length;i++){
+				
+				var node = nodes[i]
+				
+				var x = node[0]
+				var y = node[1]
+				var d = node[2]
+				
+				//set distance value
+				map.pixel( x, y, d )
+				
+				//check neighbours
+				
+				
+				//east
+				if( map.getPixel( x + 1, y ) === 0){
+					
+					list.push([ x + 1, y, d + 1])
+				}
+				//west
+				if( map.getPixel( x - 1, y ) === 0){
+					
+					list.push([ x - 1, y, d + 1])
+				}
+				//south
+				if( map.getPixel( x, y + 1 ) === 0){
+					
+					list.push([ x , y + 1, d + 1])
+				}
+				//north
+				if( map.getPixel( x, y - 1 ) === 0){
+					
+					list.push([ x , y - 1, d + 1])
+				}
+			}
+			
+			nodes = makeUnique( list )
+			
+		}
+	}
+	function makeUnique(a){
+		
+		var out =[]
+		var keys =[]
+		
+		for(var i=0; i<a.length; i++){
+			
+			var key = a[i][0]+''+a[i][1]+''+a[i][2]
+			
+			if(keys.indexOf(key) === -1){
+				
+				out.push(a[i])
+				keys.push( key )
+			}
+		}
+		return out
+	}
+	function findShortestPath(map, start, end){
+		
+		var m = [
+			-1,-1, 0,-1, 1,-1,
+			-1,0,        1,0,
+			-1,1,  0,1,  1,1
+		]
+		var path =[ [ start[0], start[1] ]  ]
+		
+		var posX = start[0]
+		var posY = start[1]
+		
+		while( !(posX == end[0] && posY == end[1]) ){
+			
+			var v = Infinity
+			var coords = null
+			
+			for( var i = 0; i < m.length;i += 2 ){
+				
+				var x = posX + m[i]
+				var y = posY + m[ i + 1 ]
+				var n = map.getPixel( x, y )
+			
+				if (n && n > -1 && n < v){ 
+					v = n
+					coords = [x,y]
+				}
+			}
+			if(!coords || v == Infinity){
+				path = false
+				 break
+			 }
+			
+			path.push( coords )
+			posX = coords[0]
+			posY = coords[1]
+			
+		}
+		
+		return path
+	}
+	function drawPath( ctx, path, size, color){
+		
+		var hs = size / 2
+		ctx.strokeStyle = color || '#000000'
+		
+		ctx.beginPath()
+		ctx.moveTo(path[0][0] * size + hs, path[0][1] * size + hs)
+		for(var i=1;i<path.length; i++){
+			ctx.lineTo(path[i][0] * size + hs, path[i][1] * size + hs)
+		}
+		ctx.stroke()
+		
+	}
+	function drawCircle( ctx, x,y,r,c){
+		ctx.beginPath()
+		ctx.arc(x,y,r,0,Math.PI*2)
+		ctx.fillStyle = c || '#000000'
+		ctx.fill()
+	}
+
+	function draw( delta ){
+		
+		ctx.clearRect(0,0,width,height)
+		drawGrid(ctx,width,height,size)
+		display.drawValues( ctx, size)
+		
+	}
+	function clearDisplay(){
+		display.clear()
+		draw()
+	}
+	function drawGrid( ctx, width, height, size){
+		
+		ctx.beginPath()
+		
+		for(var x =size; x<width; x += size){
+			
+			ctx.moveTo( x - 0.5, -0.5)
+			ctx.lineTo( x - 0.5, height-0.5)	
+		}
+		for(var y=size; y<height; y += size){
+			ctx.moveTo( -0.5, y - 0.5)
+			ctx.lineTo( width - 0.5, y - 0.5)	
+		}
+		ctx.lineWidth=1
+		ctx.strokeStyle ='#000';
+		ctx.stroke()
+	}
+	
+	/*====================== controls ===========================*/
+	canvas.addEventListener('click', createZombies, false)
+	createZombies()
+	</script>
+	</body>
+</html>
