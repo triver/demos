@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+	<meta charset="utf-8">
+	<title>Fake Mode7</title>
+	<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+	<style>
+		
+		html,body{
+			margin:0;
+			padding:0;
+			width: 100%;
+			height: 100%;
+			overflow: hidden;
+		}
+		body{ 
+			background:slategray;
+			color: #000000;
+		}
+		#wrapper{
+			position: absolute;
+			left:50%;
+			top:50%;
+			transform: translate(-50%,-50%);
+			width: 100%;
+			max-width: 512px;
+			margin: 0 auto;
+			
+			overflow: hidden;
+		}
+		#canvas{
+			
+			display: block;
+			max-width: 100%;
+			max-height: 100%;
+			background: black;
+	
+		}
+		#trace{
+			position: fixed;
+			top:10px;
+			right: 20px;
+			color: #ccc;
+		}
+	</style>
+	<body>
+	<div id="wrapper">
+		<canvas id="canvas"></canvas>
+		<div id="trace"></div>
+	</div>
+	
+	<script>
+		
+	var EPSILON = 0.00001
+	var PI2 = Math.PI*2
+	var PI_2=PI2
+	var HALF_PI = Math.PI/2
+	
+	var trace = document.getElementById('trace')
+	
+	var width = 512
+	var height = 512
+	var cx =256
+	var cy = 256
+	
+		
+	var canvas = document.getElementById('canvas')
+	var ctx = canvas.getContext('2d')
+	
+	
+	var leftDown = false
+	var rightDown = false
+	var upDown = false
+	var downDown = false
+	
+	var last = 0
+	
+	canvas.width = width
+	canvas.height = height
+	
+	/*========================================*/
+
+	var player = {
+		x:0,
+		y:0,
+		angle:0,
+		speed:2,
+		dir:[0,0],
+		turnSpeed: 0,
+		radius:30,
+		fov: 0.78,
+		near:32.0,
+		far: 0.1,
+		tanNear:0,
+		tanFar:0,
+		frustum:[],
+		autoAngle:0,
+		move:function(dir,delta){
+			
+			delta *= 0.01
+			
+			var vx = this.dir[0]*this.speed*delta*dir
+			var vy = this.dir[1]*this.speed*delta*dir
+			
+			var x = this.x + vx 
+			var y = this.y + vy 
+			
+			if( x >= this.radius &&
+				x <= width - this.radius &&
+				y >= this.radius &&
+				y <= height - this.radius
+				
+			){
+				this.x = x
+				this.y = y
+			}
+			this.calculateFrustum()
+		},
+		turn:function(dir,delta){
+			
+			delta *= 0.0005
+			this.angle -= this.turnSpeed*dir*delta
+			
+			if(this.angle > Math.PI)
+				this.angle -= PI2
+			if(this.angle < -Math.PI)
+				this.angle += PI2
+	
+			this.dir = [ Math.cos(this.angle), Math.sin(this.angle) ]
+			
+			this.calculateFrustum()
+		},
+		moveCircle: function (x, y, radius,speed, delta){
+			
+			delta *= 0.01
+			
+			var sin = Math.sin( this.autoAngle)
+			var cos = Math.cos( this.autoAngle)
+			
+			this.x = x + cos * radius
+			this.y = y + sin * radius
+			
+			this.autoAngle -= speed*delta
+			
+			this.dir = [ sin*sin, -(cos) ]
+			this.calculateFrustum()
+		},
+		init:function( x,y,a,s,ts){
+			
+			this.x = x
+			this.y = y
+			this.angle = a || 0
+			this.speed = s || 10
+			this.dir = [ Math.cos(this.angle), Math.sin(this.angle)]
+			this.turnSpeed = ts || 5
+			
+			//frustum
+			
+			this.calculateTan()
+			this.calculateFrustum()
+			
+		},
+		calculateTan: function(){
+			
+			var tan = ( Math.tan(this.fov) )
+			this.tanFar = tan*this.far
+			this.tanNear = tan*this.near
+		},
+		calculateFrustum: function(){
+			
+			
+			var dir = this.dir
+			
+			var xFar = this.x + dir[0]*this.far
+			var yFar = this.y + dir[1]*this.far
+			
+			var xNear = this.x + dir[0]*this.near
+			var yNear = this.y + dir[1]*this.near
+			
+			
+			var a = [ xFar + dir[1] * this.tanFar , yFar - dir[0] * this.tanFar ]
+			var b = [ xFar - dir[1] * this.tanFar , yFar + dir[0] * this.tanFar ]
+			
+			var c = [ xNear - dir[1] * this.tanNear , yNear + dir[0] * this.tanNear ]
+			var d = [ xNear + dir[1] * this.tanNear , yNear - dir[0] * this.tanNear ]
+			
+			this.frustum = [ a,b,c,d]
+		
+		},
+		draw: function(ctx){
+			
+			ctx.moveTo( this.x,this.y)
+			ctx.beginPath()
+			ctx.arc( this.x,this.y, this.radius, 0, PI2)
+			ctx.fillStyle = this.color
+			ctx.fill()
+			
+			var x = this.x + this.dir[0]*this.radius
+			var y = this.y + this.dir[1]*this.radius
+			
+			
+			ctx.beginPath()
+			ctx.moveTo( this.x,this.y)
+			ctx.lineTo( x, y)
+			ctx.stroke()
+			
+			
+		}
+	}
+	
+	player.init( cx,cy,0 )
+	
+	var texture = createTexture(ctx, width, height, 32)
+	//ctx.putImageData( texture, 0,0)
+	
+	var pixels = texture.data
+
+	
+	requestAnimationFrame(loop)
+	
+	function draw(delta){
+		
+		var s = performance.now()
+		
+		
+		
+		var a = player.frustum[0]
+		var b = player.frustum[1]
+		var c = player.frustum[2]
+		var d = player.frustum[3]
+		
+		
+		var iData = ctx.createImageData(width,cy)
+		var data = iData.data
+		
+		
+		for( var y=0; y <= cy; y++){
+			
+			var ty = y / cy
+		
+			var start = lerp2( a , d, ty )
+			var end   = lerp2( b , c, ty )
+		
+			for( var x = 0; x < width; x++){
+				
+			
+					var tx = x / width
+					
+					var p = lerp(  end, start,  1-tx )
+					
+					if( p[0] > 0 && p[0] <=width && p[1] > 0 && p[1] <= height){
+						
+						var i = ( ( p[0] | 0 ) + (p[1] | 0) * width ) << 2
+					
+						var ii = ( x + y * width) << 2
+						
+						data[ ii ]   = pixels[ i ]
+						data[ ii+1 ] = pixels[ i + 1 ]
+						data[ ii+2 ] = pixels[ i + 2 ]
+						data[ ii+3 ] = 255
+						
+					}
+				
+				
+			}
+			
+		}
+		ctx.putImageData(iData,0, cy)
+		
+		//player.moveCircle( cx, cy, 190, 0.02, delta)
+		
+		trace.textContent = (performance.now() - s).toFixed(2)
+		
+		//controls
+		
+		
+		if( upDown) player.move(1,delta)
+		else if(downDown) player.move( -1, delta)
+		
+		if( leftDown) player.turn(1,delta)
+		else if(rightDown) player.turn( -1, delta)
+		
+		
+	}
+	/*=======================================*/
+	
+	function loop(t){
+		
+		var delta = t - last
+		
+		last = t
+	
+		if(delta > 20) delta = 20
+		
+		ctx.clearRect(0,cy,width,cy)
+		draw(delta)
+	
+		requestAnimationFrame(loop)
+	}
+	function lerp(p1,p2,t){
+		
+		return [ p1[0] + t*( p2[0] - p1[0] ), p1[1] + t*(p2[1] - p1[1] )]
+	}
+	function lerp2( p1, p2,t){
+		
+		return [ ( p2[0] - p1[0] ) / t + p1[0], (p2[1] - p1[1] ) / t + p1[1] ]
+	}
+	function createTexture(ctx, width, heigth, size){
+		
+		var iData = ctx.createImageData( width, height )
+		var data = iData.data.fill( 255 )
+	
+		var rows = height/ size | 0
+		var columns = width / size | 0
+		
+		var odd = !!(columns & 1)
+		var flag = 0
+		
+		for(var y =0; y<rows;y++){
+			for(var x = 0; x<columns; x++){
+				
+				if(flag){
+				
+					for(var i =0; i<size;i++){
+						for(var j = 0; j<size; j++){
+							
+							
+							var idx = (   ( x * size + j ) + ( y * size + i ) * width    ) << 2
+							
+							data[idx  ] = 30
+							data[idx+1] = 50
+							data[idx+2] = 80
+							
+						}
+					}
+					
+				}
+				
+				flag = 1 - flag
+				
+			}
+			
+			if(!odd) flag = 1 - flag
+		}
+		
+		return iData
+	}
+	
+	//interact
+	function onKeyDown(e) {
+		/*
+		if(e.keyCode == 68) {
+			
+			player.far -= 0.2
+			player.calculateTan()
+			player.calculateFrustum()
+			
+			console.log('far: '+player.far)
+		}
+		else if(e.keyCode == 65) {
+			
+			player.far += 0.2
+			player.calculateTan()
+			player.calculateFrustum()
+			console.log('far: '+player.far)
+		}
+		else if(e.keyCode == 83) {
+			
+			player.near -= 0.2
+			player.calculateTan()
+			player.calculateFrustum()
+			console.log('near: '+player.near)
+		}
+		else if(e.keyCode == 87) {
+			
+			player.near += 0.2
+			player.calculateTan()
+			player.calculateFrustum()
+			console.log('near: '+player.near)
+			
+		}
+		*/
+		if(e.keyCode == 39 || e.keyCode == 68 ) {
+			rightDown = true
+		}
+		else if(e.keyCode == 37 || e.keyCode == 65 ) {
+			
+			leftDown = true
+			
+		}
+		if(e.keyCode == 40  || e.keyCode == 83 ) {
+			downDown = true
+			
+		}
+		else if(e.keyCode == 38 || e.keyCode == 87  ) {
+			upDown = true
+		}
+	}
+	function onKeyUp(e) {
+		
+		if(e.keyCode == 39 || e.keyCode == 68) {
+			rightDown = false
+		}
+		else if(e.keyCode == 37 || e.keyCode == 65) {
+			leftDown = false
+		}
+		if(e.keyCode == 40 || e.keyCode == 83) {
+			downDown = false
+		}
+		else if(e.keyCode == 38 || e.keyCode == 87) {
+			upDown = false
+		}
+	}
+	
+	document.addEventListener('keydown', onKeyDown, false)
+	document.addEventListener('keyup', onKeyUp, false)
+	
+	</script>
+	</body>
+</html>
